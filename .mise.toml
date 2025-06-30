@@ -1,0 +1,159 @@
+[tools]
+python = "3.12"
+uv = "latest"
+
+[env]
+_.python.venv = { path = ".venv", create = true }
+PROJECT_NAME = "{{ config_root | basename }}"
+PYTHONPATH = "src"
+
+[tasks."uv:reqs"]
+description = "Install dependencies from requirements file"
+alias = "uvr"
+run = "uv pip install -r requirements.txt"
+
+[tasks."uv:freeze"]
+description = "Create requirements.txt from currently installed modules"
+alias = "uvf"
+run = "uv pip freeze > requirements.txt"
+
+[tasks."uv:install"]
+description = "Install pip packages"
+alias = "uvi"
+run = "uv pip install"
+
+[tasks.info]
+description = "Print project information"
+run = '''
+echo "Project: $PROJECT_NAME"
+echo "Virtual Environment: $VIRTUAL_ENV"
+echo "Python Path: $PYTHONPATH"
+'''
+
+[tasks.setup]
+description = "Set up development environment"
+depends = ["uv:reqs"]
+run = "echo 'Development environment ready!'"
+
+[tasks.test]
+description = "Run all tests with pytest"
+run = "python -m pytest tests/ -v"
+
+[tasks."test:watch"]
+description = "Run tests in watch mode"
+alias = "tw"
+run = "python -m pytest tests/ -v --tb=short -f"
+
+[tasks."test:coverage"]
+description = "Run tests with coverage report"
+alias = "tc"
+run = '''
+python -m pytest tests/ --cov=src --cov-report=html --cov-report=term
+echo "Coverage report saved to htmlcov/index.html"
+'''
+
+[tasks.lint]
+description = "Run code quality checks"
+run = '''
+echo "Running flake8..."
+python -m flake8 src/ tests/
+echo "Running black check..."
+python -m black --check src/ tests/
+echo "Running mypy..."
+python -m mypy src/
+'''
+
+[tasks.format]
+description = "Format code with black"
+run = "python -m black src/ tests/"
+
+[tasks."dev:install"]
+description = "Install package in development mode"
+alias = "dev"
+run = "pip install -e ."
+
+[tasks."dev:uninstall"]
+description = "Uninstall development package"
+run = "pip uninstall tengingarstjori -y"
+
+[tasks."tg:init"]
+description = "Test: Initialize Tengingarstjóri"
+depends = ["dev:install"]
+run = "tg init"
+
+[tasks."tg:add"]
+description = "Test: Add a test SSH connection"
+depends = ["dev:install"]
+run = "tg add"
+
+[tasks."tg:list"]
+description = "Test: List all SSH connections"
+depends = ["dev:install"]
+run = "tg list"
+
+[tasks."tg:config"]
+description = "Test: Configure Tengingarstjóri settings"
+depends = ["dev:install"]
+run = "tg config"
+
+[tasks.clean]
+description = "Clean up build artifacts and cache"
+run = '''
+rm -rf build/
+rm -rf dist/
+rm -rf *.egg-info/
+rm -rf .pytest_cache/
+rm -rf htmlcov/
+rm -rf .coverage
+find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+find . -type f -name "*.pyc" -delete
+'''
+
+[tasks."clean:full"]
+description = "Full clean including virtual environment"
+depends = ["clean"]
+run = "rm -rf .venv/"
+
+[tasks.build]
+description = "Build package for distribution"
+run = '''
+python -m build
+echo "Package built in dist/"
+'''
+
+[tasks."install:global"]
+description = "Install package globally from current source"
+depends = ["build"]
+run = '''
+pip install dist/*.whl --force-reinstall
+echo "Tengingarstjóri installed globally as 'tg' command"
+'''
+
+[tasks."tg:fix"]
+description = "Test: Fix corrupted SSH configuration"
+depends = ["dev:install"]
+run = "tg fix-config"
+
+[tasks."tg:refresh"]
+description = "Test: Refresh SSH configuration"
+depends = ["dev:install"]
+run = "tg refresh"
+
+[tasks.demo]
+description = "Run a demo of the SSH connection manager"
+depends = ["dev:install"]
+run = '''
+echo "🎯 Tengingarstjóri Demo"
+echo "====================="
+echo ""
+echo "1. Checking installation..."
+tg --version
+echo ""
+echo "2. Available commands:"
+tg --help
+echo ""
+echo "3. To start using:"
+echo "   tg init    # Set up SSH integration"
+echo "   tg add     # Add SSH connections"
+echo "   tg list    # View connections"
+'''
