@@ -35,6 +35,18 @@ description = "Set up development environment"
 depends = ["uv:reqs"]
 run = "echo 'Development environment ready!'"
 
+[tasks."test:unit"]
+description = "Run unit tests only"
+run = "python -m pytest tests/test_models.py tests/test_config_manager.py -v"
+
+[tasks."test:cli"]
+description = "Run CLI integration tests"
+run = "python -m pytest tests/test_cli.py -v"
+
+[tasks."test:all"]
+description = "Run all tests with detailed output"
+run = "python -m pytest tests/ -v --tb=long"
+
 [tasks.test]
 description = "Run all tests with pytest"
 run = "python -m pytest tests/ -v"
@@ -62,6 +74,10 @@ python -m black --check src/ tests/
 echo "Running mypy..."
 python -m mypy src/
 '''
+
+[tasks."fix-format"]
+description = "Auto-fix code formatting issues"
+run = "python -m black src/ tests/"
 
 [tasks.format]
 description = "Format code with black"
@@ -138,6 +154,10 @@ run = "tg fix-config"
 description = "Test: Refresh SSH configuration"
 depends = ["dev:install"]
 run = "tg refresh"
+
+[tasks."pre-commit"]
+description = "Run comprehensive tests before committing"
+run = "chmod +x scripts/test-before-commit.sh && scripts/test-before-commit.sh"
 
 [tasks.demo]
 description = "Run a demo of the SSH connection manager"

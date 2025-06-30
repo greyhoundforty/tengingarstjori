@@ -54,8 +54,8 @@ def init():
 @click.option('--local-forward', help='LocalForward configuration')
 @click.option('--remote-forward', help='RemoteForward configuration')
 @click.option('--notes', help='Connection notes')
-@click.option('--interactive/--no-interactive', '-i/-I', default=True, help='Use interactive mode for missing options')
-def add(name, host, user, port, hostname, key, proxy_jump, local_forward, remote_forward, notes, interactive):
+@click.option('--non-interactive', is_flag=True, default=False, help='Use non-interactive mode (requires all options via flags)')
+def add(name, host, user, port, hostname, key, proxy_jump, local_forward, remote_forward, notes, non_interactive):
     """Add a new SSH connection
     
     Examples:
@@ -70,6 +70,9 @@ def add(name, host, user, port, hostname, key, proxy_jump, local_forward, remote
         return
     
     console.print(Panel("➕ [bold green]Add SSH Connection[/bold green]", style="green"))
+    
+    # Interactive mode is the opposite of non_interactive flag
+    interactive = not non_interactive
     
     # Handle required fields with CLI args or interactive prompts
     if not name:
@@ -388,7 +391,7 @@ def fix_config():
                 content = content.replace(pattern, "")
             
             # Clean up any duplicate empty lines
-            lines = content.split('\\n')
+            lines = content.split('\n')
             cleaned_lines = []
             prev_empty = False
             
@@ -401,7 +404,7 @@ def fix_config():
                     cleaned_lines.append(line)
                     prev_empty = False
             
-            cleaned_content = '\\n'.join(cleaned_lines).strip()
+            cleaned_content = '\n'.join(cleaned_lines).strip()
             
             if cleaned_content != original_content:
                 # Backup
