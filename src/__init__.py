@@ -1,5 +1,4 @@
-"""
-Tengingarstjóri - SSH Connection Manager
+"""Tengingarstjóri - SSH Connection Manager.
 
 A TUI-based SSH connection manager with smart config integration.
 """

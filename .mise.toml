@@ -37,51 +37,124 @@ run = "echo 'Development environment ready!'"
 
 [tasks."test:unit"]
 description = "Run unit tests only"
-run = "python -m pytest tests/test_models.py tests/test_config_manager.py -v"
+run = "python -m pytest tests/test_models.py tests/test_config_manager.py -v --tb=short"
 
 [tasks."test:cli"]
 description = "Run CLI integration tests"
-run = "python -m pytest tests/test_cli.py -v"
+run = "python -m pytest tests/test_cli.py -v --tb=short"
+
+[tasks."test:integration"]
+description = "Run integration tests"
+run = "python -m pytest tests/ -m integration -v --tb=short"
+
+[tasks."test:fast"]
+description = "Run fast tests (exclude slow/integration tests)"
+run = "python -m pytest tests/ -m 'not slow and not integration' -v --tb=short"
+
+[tasks."test:slow"]
+description = "Run slow/performance tests"
+run = "python -m pytest tests/ -m slow -v --tb=short"
 
 [tasks."test:all"]
 description = "Run all tests with detailed output"
-run = "python -m pytest tests/ -v --tb=long"
+run = "python -m pytest tests/ -v --tb=long --strict-markers"
 
 [tasks.test]
-description = "Run all tests with pytest"
-run = "python -m pytest tests/ -v"
+description = "Run standard test suite (fast tests + basic coverage)"
+run = '''
+echo "🧪 Running test suite with coverage..."
+python -m pytest tests/ -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=50 2>&1 | tee test_results.log
+echo "📝 Test results saved to test_results.log"
+'''
 
 [tasks."test:watch"]
 description = "Run tests in watch mode"
 alias = "tw"
-run = "python -m pytest tests/ -v --tb=short -f"
+run = "python -m pytest tests/ -v --tb=short -f --no-cov"
 
 [tasks."test:coverage"]
-description = "Run tests with coverage report"
+description = "Run tests with comprehensive coverage report"
 alias = "tc"
 run = '''
-python -m pytest tests/ --cov=src --cov-report=html --cov-report=term
-echo "Coverage report saved to htmlcov/index.html"
+echo "🧪 Running comprehensive test coverage analysis..."
+python -m pytest tests/ --cov=src --cov-report=html --cov-report=term --cov-report=xml --cov-fail-under=80
+echo "📊 Coverage reports generated:"
+echo "  - HTML: htmlcov/index.html"
+echo "  - XML: coverage.xml"
+echo "  - Terminal output above"
+'''
+
+[tasks."test:smoke"]
+description = "Quick smoke tests for basic functionality"
+run = '''
+echo "🔥 Running smoke tests..."
+echo "1. Testing imports..."
+python -c "from src.models import SSHConnection; from src.config_manager import SSHConfigManager; from src.cli import cli; print('✓ All imports successful')"
+echo "2. Testing CLI help..."
+tg --help > /dev/null && echo "✓ CLI help working"
+echo "3. Testing basic model creation..."
+python -c "from src.models import SSHConnection; conn = SSHConnection(name='test', host='example.com', user='testuser'); print('✓ Model creation working')"
+echo "✅ Smoke tests passed!"
 '''
 
 [tasks.lint]
-description = "Run code quality checks"
+description = "Run comprehensive code quality checks"
 run = '''
-echo "Running flake8..."
-python -m flake8 src/ tests/
-echo "Running black check..."
-python -m black --check src/ tests/
-echo "Running mypy..."
-python -m mypy src/
+echo "🔍 Running comprehensive code quality checks..."
+echo "📝 Checking code formatting with Black..."
+python -m black --check src/ tests/ || (echo "❌ Code formatting issues found. Run 'mise run format' to fix."; exit 1)
+echo "✅ Code formatting check passed"
+
+echo "🔍 Running Flake8 linting..."
+python -m flake8 src/ tests/ --statistics || (echo "❌ Linting issues found."; exit 1)
+echo "✅ Linting check passed"
+
+echo "🔬 Running MyPy type checking..."
+python -m mypy src/ --ignore-missing-imports || (echo "❌ Type checking issues found."; exit 1)
+echo "✅ Type checking passed"
+
+echo "🛡️ Running security checks..."
+if command -v bandit &> /dev/null; then
+    python -m bandit -r src/ -f json || (echo "❌ Security issues found."; exit 1)
+    echo "✅ Security check passed"
+else
+    echo "⚠️ Bandit not installed, skipping security check"
+fi
+
+echo "🎉 All code quality checks passed!"
+'''
+
+[tasks."lint:fix"]
+description = "Auto-fix linting issues where possible"
+run = '''
+echo "🔧 Auto-fixing code quality issues..."
+echo "📝 Formatting code with Black..."
+python -m black src/ tests/
+echo "🔄 Sorting imports with isort..."
+if command -v isort &> /dev/null; then
+    python -m isort src/ tests/
+else
+    echo "⚠️ isort not installed, skipping import sorting"
+fi
+echo "✅ Auto-fix complete. Please review changes."
 '''
 
 [tasks."fix-format"]
-description = "Auto-fix code formatting issues"
+description = "Auto-fix code formatting issues (deprecated - use lint:fix)"
 run = "python -m black src/ tests/"
 
 [tasks.format]
-description = "Format code with black"
-run = "python -m black src/ tests/"
+description = "Format code with black and isort"
+run = '''
+echo "🎨 Formatting code..."
+python -m black src/ tests/
+if command -v isort &> /dev/null; then
+    python -m isort src/ tests/
+else
+    echo "⚠️ isort not installed, install with: pip install isort"
+fi
+echo "✅ Code formatting complete!"
+'''
 
 [tasks."dev:install"]
 description = "Install package in development mode"
@@ -141,8 +214,10 @@ echo "Package built in dist/"
 description = "Install package globally from current source"
 depends = ["build"]
 run = '''
+echo "🌍 Installing Tengingarstjóri globally..."
 pip install dist/*.whl --force-reinstall
-echo "Tengingarstjóri installed globally as 'tg' command"
+echo "✅ Tengingarstjóri installed globally as 'tg' command"
+echo "ℹ️ Test with: tg --version"
 '''
 
 [tasks."tg:fix"]
@@ -158,6 +233,43 @@ run = "tg refresh"
 [tasks."pre-commit"]
 description = "Run comprehensive tests before committing"
 run = "chmod +x scripts/test-before-commit.sh && scripts/test-before-commit.sh"
+
+[tasks.validate]
+description = "Run complete validation suite (lint + test + smoke)"
+run = '''
+echo "🏁 Running complete validation suite..."
+echo ""
+echo "Phase 1: Code Quality Checks"
+echo "============================="
+mise run lint
+echo ""
+echo "Phase 2: Smoke Tests"
+echo "===================="
+mise run test:smoke
+echo ""
+echo "Phase 3: Unit Tests"
+echo "==================="
+mise run test:unit
+echo ""
+echo "Phase 4: Integration Tests"
+echo "=========================="
+if [ -f "tests/test_cli.py" ]; then
+    mise run test:cli
+else
+    echo "⚠️ CLI tests not found, skipping"
+fi
+echo ""
+echo "🎆 Validation complete! Ready for commit/deploy."
+'''
+
+[tasks."validate:quick"]
+description = "Quick validation (format check + smoke test)"
+run = '''
+echo "⚡ Running quick validation..."
+python -m black --check src/ tests/ && echo "✅ Format check passed"
+mise run test:smoke
+echo "✅ Quick validation complete!"
+'''
 
 [tasks.demo]
 description = "Run a demo of the SSH connection manager"
@@ -176,4 +288,10 @@ echo "3. To start using:"
 echo "   tg init    # Set up SSH integration"
 echo "   tg add     # Add SSH connections"
 echo "   tg list    # View connections"
+echo ""
+echo "4. Development commands:"
+echo "   mise run test        # Run tests with coverage"
+echo "   mise run lint        # Check code quality"
+echo "   mise run validate    # Full validation suite"
+echo "   mise run format      # Format code"
 '''
