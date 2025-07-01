@@ -1,6 +1,6 @@
 # Tengingarstjóri - SSH Connection Manager
 
-A TUI-based SSH connection manager that integrates seamlessly with your existing SSH configuration.
+`Tengingarstjóri`, Icelandic for "Connection Manager", is a Python TUI based SSH connection manager that integrates seamlessly with your existing SSH configuration.
 
 ## Features
 
@@ -10,20 +10,14 @@ A TUI-based SSH connection manager that integrates seamlessly with your existing
 - 🔗 Non-invasive SSH config integration
 - 🎯 Fast CLI commands with `tg` prefix
 
-## Project Overview
-
-**Name**: Tengingarstjóri (Icelandic for "Connection Manager")
-**CLI Command**: `tg`
-**Purpose**: Python TUI application to manage SSH connections with smart SSH config integration
-
 ## Architecture
 
-Rather than modifying your main SSH config directly, Tengingarstjóri:
+Rather than modifying your main SSH config directly, Tengingarstjóri will:
 
-1. **Creates a managed config file**: `~/.ssh/config.tengingarstjóri`
-2. **Adds one line to main config**: `Include ~/.ssh/config.tengingarstjóri`
-3. **Manages connections separately**: All additions/changes go to the managed file
-4. **Preserves your setup**: Your existing SSH config remains untouched
+1. **Create a managed config file**: `~/.ssh/config.tengingarstjori`
+2. **Add a single line to main config to include our new file**: `Include ~/.ssh/config.tengingarstjori`
+3. **Manage connections separately**: All additions/changes go to the managed file
+4. **Preserve your existing SSH setup**: Your existing SSH config remains untouched
 
 ## Quick Start
 
@@ -61,24 +55,6 @@ tg list
 - `mise run validate` - Full validation suite
 - `mise run validate:quick` - Quick validation
 
-## Directory Structure
-
-```
-tengingarstjóri/
-├── src/                    # Source code
-│   ├── cli.py             # CLI interface
-│   ├── config_manager.py  # SSH config management
-│   ├── models.py          # Data models
-│   ├── setup.py           # Setup wizard (FIXED)
-│   └── exceptions.py      # Exception hierarchy (NEW)
-├── tests/                  # Test suite
-│   ├── test_models.py     # Model tests
-│   └── test_config_manager.py  # Manager tests
-├── scripts/               # Development scripts
-├── docs/                  # Documentation
-├── .mise.toml            # Development tasks (ENHANCED)
-└── README.md             # This file (UPDATED)
-```
 
 ## Development Workflow
 
