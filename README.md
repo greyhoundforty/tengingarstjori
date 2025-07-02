@@ -12,7 +12,7 @@
 
 ## Demo
 
-<a href="https://asciinema.org/a/725739" target="_blank"><img src="https://asciinema.org/a/725739.svg" /></a>
+<a href="https://asciinema.org/a/725744" target="_blank"><img src="https://asciinema.org/a/725744.svg" /></a>
 
 ## Architecture
 
