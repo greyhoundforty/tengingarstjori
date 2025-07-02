@@ -3,6 +3,7 @@
 Provides 'tg' commands for managing SSH connections.
 """
 
+import shutil
 from pathlib import Path
 
 import click
@@ -513,6 +514,78 @@ def refresh():
         console.print(f"[dim]Config file: {config_manager.managed_config}[/dim]")
     except Exception as e:
         console.print(f"[red]Error refreshing config: {e}[/red]")
+
+
+@cli.command()
+def reset():
+    """Reset SSH configuration to the original state before Tengingarstjóri was installed."""
+    config_manager = SSHConfigManager()
+
+    console.print("[yellow]Preparing to reset SSH configuration...[/yellow]")
+
+    # Check if the backup exists
+    backup_path = config_manager.main_ssh_config.with_suffix(".backup")
+    if not backup_path.exists():
+        console.print(
+            "[red]Cannot reset: Original backup not found.[/red]\n"
+            "[yellow]This might mean that:\n"
+            "1. You haven't run 'tg init' yet\n"
+            "2. The backup file was deleted\n"
+            "3. You're using a custom SSH config location[/yellow]"
+        )
+        return
+
+    # Confirm with the user
+    if not Confirm.ask(
+        "[red]This will remove all Tengingarstjóri configuration and restore your original SSH config.[/red]\n"
+        "[red]All your connections will remain in the database but won't be available in SSH config.[/red]\n"
+        "Continue?",
+        default=False,
+    ):
+        console.print("[yellow]Reset cancelled.[/yellow]")
+        return
+
+    try:
+        # Make a backup of the current state just in case
+        current_config_backup = config_manager.main_ssh_config.with_suffix(
+            ".tengingarstjori-backup"
+        )
+        if config_manager.main_ssh_config.exists():
+            shutil.copy2(config_manager.main_ssh_config, current_config_backup)
+            console.print(
+                f"[dim]Current config backed up to: {current_config_backup}[/dim]"
+            )
+
+        # Restore the original backup
+        shutil.copy2(backup_path, config_manager.main_ssh_config)
+
+        # Remove the managed config file
+        if config_manager.managed_config.exists():
+            config_manager.managed_config.unlink()
+            console.print(
+                f"[green]✓[/green] Removed managed config: {config_manager.managed_config}"
+            )
+
+        console.print(
+            "[green]✓[/green] SSH configuration has been reset to its original state"
+        )
+        console.print(
+            "[yellow]Note: Your connection database is still intact.[/yellow]"
+        )
+        console.print(
+            "[yellow]To completely remove Tengingarstjóri, you can delete:[/yellow]"
+        )
+        console.print(
+            f"[dim]- Configuration directory: {config_manager.config_dir}[/dim]"
+        )
+
+    except Exception as e:
+        console.print(f"[red]Error resetting SSH configuration: {e}[/red]")
+        console.print("[yellow]If you need to manually reset:[/yellow]")
+        console.print(
+            f"[dim]1. Copy {backup_path} to {config_manager.main_ssh_config}[/dim]"
+        )
+        console.print(f"[dim]2. Delete {config_manager.managed_config}[/dim]")
 
 
 if __name__ == "__main__":

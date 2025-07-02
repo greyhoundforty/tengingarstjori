@@ -46,6 +46,9 @@ tg list
 - `tg remove <n>` - Remove connection
 - `tg show <n>` - Show connection details
 - `tg config` - Manage default settings
+- `tg refresh` - Update SSH config file with current connections
+- `tg fix-config` - Fix corrupted SSH config file
+- `tg reset` - Restore original SSH config (before Tengingarstjóri)
 
 ## Development Commands
 
