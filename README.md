@@ -12,7 +12,7 @@
 
 ## Demo
 
-<script src="https://asciinema.org/a/725739.js" id="asciicast-725739" async="true"></script>
+<a href="https://asciinema.org/a/725739" target="_blank"><img src="https://asciinema.org/a/725739.svg" /></a>
 
 ## Architecture
 
