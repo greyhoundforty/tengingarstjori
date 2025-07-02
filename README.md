@@ -10,6 +10,10 @@
 - 🔗 Non-invasive SSH config integration
 - 🎯 Fast CLI commands with `tg` prefix
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/725739.svg)](https://asciinema.org/a/725739)
+
 ## Architecture
 
 Rather than modifying your main SSH config directly, Tengingarstjóri will:
