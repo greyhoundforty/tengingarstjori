@@ -186,8 +186,25 @@ def add(
     """Add a new SSH connection.
 
     Examples:
+        # Basic connections
         tg add -n server1 -h 192.168.1.10 -u admin
         tg add --name myserver --host example.com --user deploy --port 2222
+
+        # ProxyJump examples
+        tg add -n internal --host 10.0.1.100 -u admin --proxy-jump bastion.company.com
+        tg add -n db-server --host 192.168.10.50 -u dbadmin --proxy-jump "jumpuser@bastion.company.com:2222"
+
+        # Port forwarding examples
+        tg add -n db-tunnel --host db.company.com -u dbuser --local-forward "3306:localhost:3306"
+        tg add -n dev-server --host dev.company.com -u dev --local-forward "8080:localhost:80,3306:db:3306"
+
+        # Complex example with multiple options
+        tg add -n prod-db --host prod-db.internal -u produser \
+               --proxy-jump bastion.company.com \
+               --local-forward "5432:localhost:5432" \
+               --key ~/.ssh/prod_key \
+               --notes "Production database via bastion"
+
         tg add  # Interactive mode
     """
     config_manager = SSHConfigManager()
@@ -291,8 +308,29 @@ def add(
 
 
 @cli.command()
-def list():
-    """List all SSH connections."""
+@click.option(
+    "--detailed",
+    "-d",
+    is_flag=True,
+    help="Show detailed information including notes, proxy settings, and port forwarding",
+)
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["table", "compact"]),
+    default="table",
+    help="Output format: table (default) or compact",
+)
+def list(detailed, format):
+    """List all SSH connections.
+
+    Examples:
+        tg list                    # Basic list
+        tg list --detailed         # Show all details
+        tg list -d                 # Short form for detailed
+        tg list -f compact         # Compact format
+        tg list -d -f compact      # Detailed compact format
+    """
     config_manager = SSHConfigManager()
     connections = config_manager.list_connections()
 
@@ -302,31 +340,149 @@ def list():
         )
         return
 
-    table = Table(title="SSH Connections")
-    table.add_column("#", style="dim", width=3)
-    table.add_column("Name", style="cyan", no_wrap=True)
-    table.add_column("Host", style="blue")
-    table.add_column("User", style="green")
-    table.add_column("Port", style="yellow", width=5)
-    table.add_column("Key", style="magenta")
-    table.add_column("Last Used", style="dim")
+    if format == "compact":
+        _display_connections_compact(connections, detailed)
+    else:
+        _display_connections_table(connections, detailed)
 
-    for i, conn in enumerate(connections, 1):
-        key_display = Path(conn.identity_file).name if conn.identity_file else "default"
-        last_used = conn.last_used.strftime("%Y-%m-%d") if conn.last_used else "Never"
+    console.print(f"\n[dim]Total: {len(connections)} connections[/dim]")
 
-        table.add_row(
-            str(i),
-            conn.name,
-            conn.host,
-            conn.user,
-            str(conn.port),
-            key_display,
-            last_used,
-        )
+
+def _display_connections_table(connections, detailed=False):
+    """Display connections in table format."""
+    if detailed:
+        # Detailed table with all information
+        table = Table(title="SSH Connections (Detailed)", show_lines=True)
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Connection", style="blue")
+        table.add_column("Advanced", style="magenta")
+        table.add_column("Notes", style="yellow")
+        table.add_column("Last Used", style="dim")
+
+        for i, conn in enumerate(connections, 1):
+            # Build connection string
+            connection_str = f"{conn.user}@{conn.host}"
+            if conn.port != 22:
+                connection_str += f":{conn.port}"
+            if conn.hostname and conn.hostname != conn.host:
+                connection_str += f"\n[dim]SSH: {conn.hostname}[/dim]"
+            if conn.identity_file:
+                key_name = Path(conn.identity_file).name
+                connection_str += f"\n[dim]Key: {key_name}[/dim]"
+
+            # Build advanced options string
+            advanced_options = []
+            if conn.proxy_jump:
+                advanced_options.append(f"[green]ProxyJump:[/green] {conn.proxy_jump}")
+            if conn.local_forward:
+                advanced_options.append(
+                    f"[blue]LocalForward:[/blue] {conn.local_forward}"
+                )
+            if conn.remote_forward:
+                advanced_options.append(
+                    f"[red]RemoteForward:[/red] {conn.remote_forward}"
+                )
+
+            advanced_str = (
+                "\n".join(advanced_options) if advanced_options else "[dim]None[/dim]"
+            )
+
+            # Format notes
+            notes_str = conn.notes if conn.notes else "[dim]None[/dim]"
+            if conn.notes and len(conn.notes) > 30:
+                notes_str = conn.notes[:27] + "..."
+
+            # Format last used
+            last_used = (
+                conn.last_used.strftime("%Y-%m-%d") if conn.last_used else "Never"
+            )
+
+            table.add_row(
+                str(i),
+                conn.name,
+                connection_str,
+                advanced_str,
+                notes_str,
+                last_used,
+            )
+    else:
+        # Standard table (existing format)
+        table = Table(title="SSH Connections")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Name", style="cyan", no_wrap=True)
+        table.add_column("Host", style="blue")
+        table.add_column("User", style="green")
+        table.add_column("Port", style="yellow", width=5)
+        table.add_column("Key", style="magenta")
+        table.add_column("Last Used", style="dim")
+
+        for i, conn in enumerate(connections, 1):
+            key_display = (
+                Path(conn.identity_file).name if conn.identity_file else "default"
+            )
+            last_used = (
+                conn.last_used.strftime("%Y-%m-%d") if conn.last_used else "Never"
+            )
+
+            table.add_row(
+                str(i),
+                conn.name,
+                conn.host,
+                conn.user,
+                str(conn.port),
+                key_display,
+                last_used,
+            )
 
     console.print(table)
-    console.print(f"\n[dim]Total: {len(connections)} connections[/dim]")
+
+
+def _display_connections_compact(connections, detailed=False):
+    """Display connections in compact format."""
+    console.print("[bold]SSH Connections:[/bold]\n")
+
+    for i, conn in enumerate(connections, 1):
+        # Basic connection info
+        console.print(
+            f"[cyan]{i:2}. {conn.name}[/cyan] - {conn.user}@{conn.host}:{conn.port}"
+        )
+
+        if detailed:
+            details = []
+
+            # SSH hostname if different
+            if conn.hostname and conn.hostname != conn.host:
+                details.append(f"SSH: {conn.hostname}")
+
+            # SSH key
+            if conn.identity_file:
+                key_name = Path(conn.identity_file).name
+                details.append(f"Key: {key_name}")
+
+            # Advanced options
+            if conn.proxy_jump:
+                details.append(f"ProxyJump: {conn.proxy_jump}")
+            if conn.local_forward:
+                details.append(f"LocalForward: {conn.local_forward}")
+            if conn.remote_forward:
+                details.append(f"RemoteForward: {conn.remote_forward}")
+
+            # Notes
+            if conn.notes:
+                details.append(f"Notes: {conn.notes}")
+
+            # Last used
+            last_used = (
+                conn.last_used.strftime("%Y-%m-%d") if conn.last_used else "Never"
+            )
+            details.append(f"Last used: {last_used}")
+
+            if details:
+                for detail in details:
+                    console.print(f"     [dim]{detail}[/dim]")
+
+        console.print()  # Empty line between connections
 
 
 def _find_connection_by_ref(config_manager, connection_ref: str):
