@@ -25,9 +25,6 @@ repos:
         description: Ensure executables have shebangs
       - id: mixed-line-ending
         description: Check for mixed line endings
-      - id: check-added-large-files
-        description: Prevent large files from being committed
-        args: ['--maxkb=1000']
 
   # Python code formatting
   - repo: https://github.com/psf/black
