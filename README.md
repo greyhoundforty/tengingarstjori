@@ -12,7 +12,7 @@
 
 ## Demo
 
-[![asciicast](https://asciinema.org/a/725739.svg)](https://asciinema.org/a/725739)
+<script src="https://asciinema.org/a/725739.js" id="asciicast-725739" async="true"></script>
 
 ## Architecture
 
