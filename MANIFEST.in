@@ -1,0 +1,49 @@
+# MANIFEST.in - Specifies additional files to include in the distribution
+# This file tells setuptools which files to include beyond Python source files
+
+# Include documentation files
+include README.md
+include CHANGELOG.md
+include LICENSE
+include QUICK_REFERENCE.md
+include USAGE.md
+include DEVELOPMENT.md
+include PHASES.md
+include QUALITY_FIXES.md
+include PHASE1_SUMMARY.md
+
+# Include configuration files
+include requirements.txt
+include pyproject.toml
+include pytest.ini
+include .flake8
+include .pre-commit-config.yaml
+include .mise.toml
+
+# Include shell scripts
+include install.sh
+include reset_tg.sh
+include test_features.sh
+
+# Include source files recursively
+recursive-include src *.py
+recursive-include tests *.py
+recursive-include scripts *.py *.sh
+
+# Exclude compiled Python files and cache directories
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * *.pyc
+recursive-exclude * *.pyo
+
+# Exclude development and build artifacts
+exclude main.py
+exclude test_results.log
+recursive-exclude .git *
+recursive-exclude .venv *
+recursive-exclude .pytest_cache *
+recursive-exclude dist *
+recursive-exclude build *
+recursive-exclude *.egg-info *
+recursive-exclude .vscode *
+exclude .coverage

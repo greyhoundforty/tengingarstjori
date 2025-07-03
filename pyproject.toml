@@ -8,27 +8,31 @@ version = "0.1.0"
 description = "SSH Connection Manager with TUI interface"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Ryan", email = "ryan@example.com"},
 ]
-keywords = ["ssh", "tui", "connection", "manager", "terminal"]
+keywords = ["ssh", "tui", "connection", "manager", "terminal", "cli", "devops", "sysadmin"]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Console :: Curses",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Unix",
     "Operating System :: POSIX",
     "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: System :: Systems Administration",
     "Topic :: Terminals",
     "Topic :: Utilities",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 dependencies = [
@@ -41,32 +45,89 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "black>=22.0.0",
     "flake8>=5.0.0",
     "mypy>=1.0.0",
+    "isort>=5.0.0",
+    "pre-commit>=2.0.0",
+    "build>=0.10.0",
+    "twine>=4.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "coverage[toml]>=7.0.0",
+]
+lint = [
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.0.0",
+    "pre-commit>=2.0.0",
+]
+docs = [
+    "mkdocs>=1.4.0",
+    "mkdocs-material>=8.0.0",
+    "mkdocs-click>=0.8.0",
 ]
 
 [project.scripts]
-tg = "src.cli:cli"
+tg = "tengingarstjori.cli:cli"
 
 [project.urls]
 "Homepage" = "https://github.com/yourusername/tengingarstjori"
 "Bug Reports" = "https://github.com/yourusername/tengingarstjori/issues"
 "Source" = "https://github.com/yourusername/tengingarstjori"
+"Documentation" = "https://github.com/yourusername/tengingarstjori#readme"
+"Changelog" = "https://github.com/yourusername/tengingarstjori/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]
+include = ["tengingarstjori*"]
 
 [tool.black]
 line-length = 88
 target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
 
 [tool.mypy]
 python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "textual.*",
+    "rich.*",
+]
+ignore_missing_imports = true
 
 [tool.isort]
 profile = "black"
@@ -77,3 +138,55 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 src_paths = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=85",
+    "-v",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/.*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+show_missing = true
+skip_covered = false
+skip_empty = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"

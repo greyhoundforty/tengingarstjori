@@ -97,6 +97,25 @@ python -c "from src.models import SSHConnection; conn = SSHConnection(name='test
 echo "✅ Smoke tests passed!"
 '''
 
+[tasks."lint:quick"]
+description = "Quick lint check without security scan"
+run = '''
+echo "🔍 Running quick code quality checks..."
+echo "📝 Checking code formatting with Black..."
+python -m black --check src/ tests/ scripts/ || (echo "❌ Code formatting issues found. Run 'mise run format' to fix."; exit 1)
+echo "✅ Code formatting check passed"
+
+echo "🔍 Running Flake8 linting..."
+python -m flake8 src/ tests/ scripts/ --statistics || (echo "❌ Linting issues found."; exit 1)
+echo "✅ Linting check passed"
+
+echo "🔬 Running MyPy type checking..."
+python -m mypy src/ --ignore-missing-imports || (echo "❌ Type checking issues found."; exit 1)
+echo "✅ Type checking passed"
+
+echo "🎉 Quick lint checks passed!"
+'''
+
 [tasks.lint]
 description = "Run comprehensive code quality checks"
 run = '''
@@ -188,6 +207,7 @@ run = "tg config"
 [tasks.clean]
 description = "Clean up build artifacts and cache"
 run = '''
+echo "🧹 Cleaning build artifacts..."
 rm -rf build/
 rm -rf dist/
 rm -rf *.egg-info/
@@ -196,6 +216,7 @@ rm -rf htmlcov/
 rm -rf .coverage
 find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 find . -type f -name "*.pyc" -delete
+echo "✅ Cleanup complete!"
 '''
 
 [tasks."clean:full"]
@@ -203,23 +224,280 @@ description = "Full clean including virtual environment"
 depends = ["clean"]
 run = "rm -rf .venv/"
 
+# Package Building and Distribution Tasks
+[tasks."build:deps"]
+description = "Install build dependencies"
+run = '''
+echo "📦 Installing build dependencies..."
+pip install build twine wheel setuptools
+echo "✅ Build dependencies installed"
+'''
+
+[tasks."build:clean"]
+description = "Clean and prepare for build"
+depends = ["clean"]
+run = '''
+echo "🧹 Preparing clean build environment..."
+rm -rf build/ dist/ *.egg-info/
+echo "✅ Build environment prepared"
+'''
+
+[tasks."build:check"]
+description = "Check package configuration"
+run = '''
+echo "🔍 Checking package configuration..."
+echo "Validating pyproject.toml structure..."
+python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))" && echo "✅ pyproject.toml syntax valid"
+echo "Checking package structure..."
+python scripts/validate_package.py
+'''
+
 [tasks.build]
 description = "Build package for distribution"
+depends = ["build:deps", "build:clean"]
 run = '''
+echo "📦 Building package for distribution..."
 python -m build
-echo "Package built in dist/"
+echo ""
+echo "✅ Package built successfully!"
+echo "📁 Build artifacts:"
+ls -la dist/
+echo ""
+echo "📝 Next steps:"
+echo "  - Check: mise run build:validate"
+echo "  - Test install: mise run build:test-install"
+echo "  - Publish test: mise run publish:test"
 '''
 
-[tasks."install:global"]
-description = "Install package globally from current source"
+[tasks."build:validate"]
+description = "Validate built package"
+run = '''
+echo "🔍 Validating built package..."
+if [ ! -d "dist" ] || [ -z "$(ls -A dist/)" ]; then
+    echo "❌ No build artifacts found. Run 'mise run build' first."
+    exit 1
+fi
+
+echo "1. Checking package integrity with twine..."
+python -m twine check dist/*
+
+echo "2. Inspecting wheel contents..."
+python -c "
+import zipfile, glob
+wheel_files = glob.glob('dist/*.whl')
+if wheel_files:
+    with zipfile.ZipFile(wheel_files[0], 'r') as z:
+        print('Wheel contents:')
+        for name in sorted(z.namelist()):
+            print(f'  {name}')
+else:
+    print('No wheel file found')
+"
+
+echo "3. Inspecting source distribution..."
+tar -tzf dist/*.tar.gz | head -20
+
+echo "✅ Package validation complete!"
+'''
+
+[tasks."build:test-install"]
+description = "Test installation of built package"
 depends = ["build"]
 run = '''
-echo "🌍 Installing Tengingarstjóri globally..."
-pip install dist/*.whl --force-reinstall
-echo "✅ Tengingarstjóri installed globally as 'tg' command"
-echo "ℹ️ Test with: tg --version"
+echo "🧪 Testing package installation..."
+
+# Create temporary virtual environment for testing
+python -m venv test_install_env
+source test_install_env/bin/activate
+
+echo "Installing built package..."
+pip install dist/*.whl
+
+echo "Testing import..."
+python -c "import tengingarstjori; print(f'Successfully imported tengingarstjori v{tengingarstjori.__version__}')"
+
+echo "Testing CLI..."
+tg --version
+
+echo "Testing basic functionality..."
+python -c "
+from tengingarstjori import SSHConnection
+conn = SSHConnection(name='test', host='example.com', user='user')
+print(f'Created connection: {conn.name}')
+print('✅ Basic functionality test passed')
+"
+
+# Cleanup
+deactivate
+rm -rf test_install_env
+
+echo "✅ Package installation test passed!"
 '''
 
+[tasks."build:inspect"]
+description = "Inspect package contents in detail"
+run = '''
+echo "🔍 Detailed package inspection..."
+
+if [ ! -d "dist" ]; then
+    echo "❌ No dist/ directory. Run 'mise run build' first."
+    exit 1
+fi
+
+echo "=== WHEEL CONTENTS ==="
+python -c "
+import zipfile, glob
+wheel_files = glob.glob('dist/*.whl')
+if wheel_files:
+    with zipfile.ZipFile(wheel_files[0], 'r') as z:
+        for name in sorted(z.namelist()):
+            print(name)
+"
+
+echo ""
+echo "=== SOURCE DISTRIBUTION CONTENTS ==="
+tar -tzf dist/*.tar.gz
+
+echo ""
+echo "=== METADATA ==="
+python -c "
+import zipfile, glob
+wheel_files = glob.glob('dist/*.whl')
+if wheel_files:
+    with zipfile.ZipFile(wheel_files[0], 'r') as z:
+        try:
+            metadata = z.read('tengingarstjori-0.1.0.dist-info/METADATA').decode()
+            print(metadata[:1000] + '...' if len(metadata) > 1000 else metadata)
+        except KeyError:
+            print('METADATA file not found in wheel')
+"
+'''
+
+# Publishing Tasks
+[tasks."publish:deps"]
+description = "Install publishing dependencies"
+run = "pip install twine keyring"
+
+[tasks."publish:test"]
+description = "Publish to Test PyPI"
+depends = ["build", "publish:deps"]
+run = '''
+echo "🚀 Publishing to Test PyPI..."
+echo "⚠️ Make sure you have configured your Test PyPI credentials!"
+echo ""
+python -m twine upload --repository testpypi dist/*
+echo ""
+echo "✅ Published to Test PyPI!"
+echo "🔗 Check: https://test.pypi.org/project/tengingarstjori/"
+echo ""
+echo "📝 Test installation:"
+echo "  pip install --index-url https://test.pypi.org/simple/ tengingarstjori"
+'''
+
+[tasks."publish:prod"]
+description = "Publish to production PyPI"
+depends = ["build", "publish:deps"]
+run = '''
+echo "🚀 Publishing to PRODUCTION PyPI..."
+echo "⚠️ This will publish to the real PyPI!"
+echo ""
+read -p "Are you sure you want to proceed? (yes/no): " confirm
+if [ "$confirm" != "yes" ]; then
+    echo "❌ Publication cancelled"
+    exit 1
+fi
+echo ""
+python -m twine upload dist/*
+echo ""
+echo "🎉 Published to production PyPI!"
+echo "🔗 Check: https://pypi.org/project/tengingarstjori/"
+echo ""
+echo "📝 Install with:"
+echo "  pip install tengingarstjori"
+'''
+
+[tasks."publish:check-credentials"]
+description = "Check PyPI credentials configuration"
+run = '''
+echo "🔐 Checking PyPI credentials..."
+echo ""
+echo "Checking for .pypirc file..."
+if [ -f ~/.pypirc ]; then
+    echo "✅ .pypirc found"
+    echo "Repositories configured:"
+    grep '^\[' ~/.pypirc
+else
+    echo "❌ .pypirc not found"
+    echo ""
+    echo "📝 Create ~/.pypirc with:"
+    echo "[distutils]"
+    echo "index-servers = pypi testpypi"
+    echo ""
+    echo "[pypi]"
+    echo "username = __token__"
+    echo "password = your-pypi-token"
+    echo ""
+    echo "[testpypi]"
+    echo "repository = https://test.pypi.org/legacy/"
+    echo "username = __token__"
+    echo "password = your-test-pypi-token"
+fi
+'''
+
+# Release Management Tasks
+[tasks."release:prepare"]
+description = "Prepare for release (check everything is ready)"
+run = '''
+echo "🎯 Preparing for release..."
+echo ""
+echo "1. Running validation suite..."
+mise run validate
+echo ""
+echo "2. Checking package configuration..."
+mise run build:check
+echo ""
+echo "3. Building package..."
+mise run build
+echo ""
+echo "4. Validating package..."
+mise run build:validate
+echo ""
+echo "5. Testing installation..."
+mise run build:test-install
+echo ""
+echo "✅ Release preparation complete!"
+echo ""
+echo "📝 Next steps:"
+echo "  1. Update version in src/tengingarstjori/__init__.py"
+echo "  2. Update version in pyproject.toml"
+echo "  3. Update CHANGELOG.md"
+echo "  4. Commit changes: git commit -m 'Release vX.Y.Z'"
+echo "  5. Tag release: git tag vX.Y.Z"
+echo "  6. Test publish: mise run publish:test"
+echo "  7. Production publish: mise run publish:prod"
+echo "  8. Push: git push origin main --tags"
+'''
+
+[tasks."release:version"]
+description = "Show current version information"
+run = '''
+echo "📋 Version Information"
+echo "====================="
+echo ""
+echo "Package version (pyproject.toml):"
+grep "version =" pyproject.toml
+echo ""
+echo "Code version (__init__.py):"
+grep "__version__" src/tengingarstjori/__init__.py
+echo ""
+echo "Git tags:"
+git tag -l | tail -5
+echo ""
+echo "Git status:"
+git status --porcelain
+'''
+
+# Development workflow tasks
 [tasks."tg:fix"]
 description = "Test: Fix corrupted SSH configuration"
 depends = ["dev:install"]
@@ -232,10 +510,15 @@ run = "tg refresh"
 
 [tasks."pre-commit"]
 description = "Run comprehensive tests before committing"
-run = "chmod +x scripts/test-before-commit.sh && scripts/test-before-commit.sh"
+run = '''
+echo "🔄 Pre-commit validation..."
+mise run lint
+mise run test:fast
+echo "✅ Pre-commit checks passed!"
+'''
 
 [tasks.validate]
-description = "Run complete validation suite (lint + test + smoke)"
+description = "Run complete validation suite (lint + test + build)"
 run = '''
 echo "🏁 Running complete validation suite..."
 echo ""
@@ -243,21 +526,13 @@ echo "Phase 1: Code Quality Checks"
 echo "============================="
 mise run lint
 echo ""
-echo "Phase 2: Smoke Tests"
-echo "===================="
-mise run test:smoke
-echo ""
-echo "Phase 3: Unit Tests"
+echo "Phase 2: Test Suite"
 echo "==================="
-mise run test:unit
+mise run test
 echo ""
-echo "Phase 4: Integration Tests"
-echo "=========================="
-if [ -f "tests/test_cli.py" ]; then
-    mise run test:cli
-else
-    echo "⚠️ CLI tests not found, skipping"
-fi
+echo "Phase 3: Package Validation"
+echo "==========================="
+mise run build:check
 echo ""
 echo "🎆 Validation complete! Ready for commit/deploy."
 '''
@@ -293,5 +568,54 @@ echo "4. Development commands:"
 echo "   mise run test        # Run tests with coverage"
 echo "   mise run lint        # Check code quality"
 echo "   mise run validate    # Full validation suite"
-echo "   mise run format      # Format code"
+echo "   mise run build       # Build package"
+echo "   mise run publish:test # Test publish to PyPI"
+'''
+
+# Help task
+[tasks.help]
+description = "Show available tasks organized by category"
+run = '''
+echo "📚 Tengingarstjóri Development Tasks"
+echo "===================================="
+echo ""
+echo "🔧 SETUP & DEVELOPMENT"
+echo "  setup           - Set up development environment"
+echo "  dev             - Install in development mode"
+echo "  demo            - Run application demo"
+echo ""
+echo "🧪 TESTING"
+echo "  test            - Run standard test suite"
+echo "  test:unit       - Run unit tests only"
+echo "  test:integration - Run integration tests"
+echo "  test:coverage   - Run with comprehensive coverage"
+echo "  test:smoke      - Quick smoke tests"
+echo ""
+echo "🔍 CODE QUALITY"
+echo "  lint            - Run all code quality checks"
+echo "  format          - Format code (Black + isort)"
+echo "  lint:fix        - Auto-fix issues where possible"
+echo ""
+echo "📦 PACKAGE BUILDING"
+echo "  build           - Build package for distribution"
+echo "  build:validate  - Validate built package"
+echo "  build:test-install - Test package installation"
+echo "  build:inspect   - Inspect package contents"
+echo ""
+echo "🚀 PUBLISHING"
+echo "  publish:test    - Publish to Test PyPI"
+echo "  publish:prod    - Publish to production PyPI"
+echo "  publish:check-credentials - Check PyPI setup"
+echo ""
+echo "🎯 RELEASE MANAGEMENT"
+echo "  release:prepare - Full release preparation"
+echo "  release:version - Show version information"
+echo "  validate        - Complete validation suite"
+echo "  validate:quick  - Quick validation"
+echo ""
+echo "🧹 MAINTENANCE"
+echo "  clean           - Clean build artifacts"
+echo "  clean:full      - Full clean including venv"
+echo ""
+echo "Run any task with: mise run <task-name>"
 '''

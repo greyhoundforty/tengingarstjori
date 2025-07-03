@@ -2,6 +2,22 @@
 
 `Tengingarstjóri`, Icelandic for "Connection Manager", is a Python TUI based SSH connection manager that integrates seamlessly with your existing SSH configuration.
 
+## Installation
+
+### From PyPI (Recommended)
+
+```bash
+pip install tengingarstjori
+```
+
+### From Source
+
+```bash
+git clone https://github.com/yourusername/tengingarstjori.git
+cd tengingarstjori
+pip install -e .
+```
+
 ## Features
 
 - 🔧 **Full SSH Connection Management**: Add, remove, edit, and delete SSH connections
@@ -16,6 +32,22 @@
 
 <a href="https://asciinema.org/a/725744" target="_blank"><img src="https://asciinema.org/a/725744.svg" /></a>
 
+## Quick Start
+
+```bash
+# Initialize Tengingarstjóri
+tg init
+
+# Add your first connection
+tg add -n "web-server" -h "192.168.1.100" -u "admin"
+
+# List connections
+tg list
+
+# Connect using SSH
+ssh web-server
+```
+
 ## Architecture
 
 Rather than modifying your main SSH config directly, Tengingarstjóri will:
@@ -24,25 +56,6 @@ Rather than modifying your main SSH config directly, Tengingarstjóri will:
 2. **Add a single line to main config to include our new file**: `Include ~/.ssh/config.tengingarstjori`
 3. **Manage connections separately**: All additions/changes go to the managed file
 4. **Preserve your existing SSH setup**: Your existing SSH config remains untouched
-
-## Quick Start
-
-```bash
-# Install dependencies
-mise run setup
-
-# Install in development mode
-mise run dev
-
-# Initialize SSH integration
-tg init
-
-# Add your first connection
-tg add
-
-# List connections
-tg list
-```
 
 ## Usage Examples
 
@@ -75,6 +88,10 @@ tg list -f compact  # Short form
 
 # Detailed + compact (ideal for many connections)
 tg list -d -f compact
+
+# JSON output for scripting
+tg list --format json
+tg list -d -f json  # Detailed JSON
 ```
 
 ### ProxyJump (Bastion/Jump Servers)
@@ -91,7 +108,6 @@ tg add -n "secure-db" -h "192.168.10.50" -u "dbadmin" \
 # Multi-hop through multiple servers
 tg add -n "deep-internal" -h "172.16.5.10" -u "root" \
     --proxy-jump "jump1.company.com,user@jump2.internal.com"
-
 ```
 
 ### Port Forwarding
@@ -172,6 +188,7 @@ cat ~/.ssh/config.tengingarstjori
 # List command options
 tg list --detailed          # Show notes, proxy, port forwarding
 tg list --format compact    # Space-efficient output
+tg list --format json       # JSON output for scripting
 tg list -d -f compact       # Both options combined
 
 # Add command supports advanced SSH features
@@ -179,6 +196,37 @@ tg add --proxy-jump "bastion.company.com"           # Jump server
 tg add --local-forward "3306:localhost:3306"        # Port tunnel
 tg add --remote-forward "8080:localhost:3000"       # Reverse tunnel
 tg add --notes "Production database server"         # Connection notes
+```
+
+## Python API
+
+Tengingarstjóri can also be used as a Python library:
+
+```python
+from tengingarstjori import SSHConfigManager, SSHConnection
+
+# Create a config manager
+config_manager = SSHConfigManager()
+
+# Create a new connection
+connection = SSHConnection(
+    name="api-server",
+    host="api.company.com",
+    user="apiuser",
+    port=2222,
+    proxy_jump="bastion.company.com",
+    local_forward="8080:localhost:8080",
+    notes="API server with tunnel"
+)
+
+# Add the connection
+config_manager.add_connection(connection)
+
+# List all connections
+connections = config_manager.list_connections()
+
+# Get a specific connection
+conn = config_manager.get_connection_by_name("api-server")
 ```
 
 ## Testing Your Setup
@@ -220,6 +268,41 @@ ssh test-server
 
 # Test with debug output
 ssh -vvv test-server
+```
+
+## Development
+
+### Installing for Development
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/tengingarstjori.git
+cd tengingarstjori
+
+# Install in development mode
+pip install -e .[dev]
+
+# Run tests
+pytest
+
+# Run code quality checks
+black src tests
+flake8 src tests
+mypy src
+```
+
+### Build and Test Package
+
+```bash
+# Build package
+python -m build
+
+# Test package
+python -m twine check dist/*
+
+# Install and test
+pip install dist/*.whl
+tg --help
 ```
 
 ## Troubleshooting
@@ -267,7 +350,7 @@ tg refresh
 ## Additional Resources
 
 - **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Comprehensive usage guide
-- **[proxy_jump_examples.sh](proxy_jump_examples.sh)** - 70+ real-world examples
+- **[PYPI_PUBLISHING_GUIDE.md](PYPI_PUBLISHING_GUIDE.md)** - Guide for maintainers
 - **[CHANGELOG.md](CHANGELOG.md)** - Detailed change history
 
 ## Development Commands
@@ -296,6 +379,10 @@ mise run validate         # Full validation before commit
 3. Check code quality: `mise run lint`
 4. Run full validation: `mise run validate`
 5. Update documentation as needed
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Development Environment
 
