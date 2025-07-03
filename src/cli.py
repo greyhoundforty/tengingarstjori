@@ -3,6 +3,7 @@
 Provides 'tg' commands for managing SSH connections.
 """
 
+import json
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -317,19 +318,25 @@ def add(
 @click.option(
     "--format",
     "-f",
-    type=click.Choice(["table", "compact"]),
+    type=click.Choice(["table", "compact", "json"]),
     default="table",
-    help="Output format: table (default) or compact",
+    help="Output format: table (default), compact, or json",
 )
 def list(detailed, format):
-    """List all SSH connections.
+    r"""List all SSH connections.
 
-    Examples:
-        tg list                    # Basic list
-        tg list --detailed         # Show all details
-        tg list -d                 # Short form for detailed
-        tg list -f compact         # Compact format
-        tg list -d -f compact      # Detailed compact format
+    \b
+    Basic usage:
+      tg list                    # Basic list
+      tg list --detailed         # Show all details
+      tg list -d                 # Short form for detailed
+
+    \b
+    Format options:
+      tg list -f compact         # Compact format
+      tg list -d -f compact      # Detailed compact format
+      tg list -f json            # JSON output
+      tg list -d -f json         # Detailed JSON output
     """
     config_manager = SSHConfigManager()
     connections = config_manager.list_connections()
@@ -340,12 +347,16 @@ def list(detailed, format):
         )
         return
 
-    if format == "compact":
+    if format == "json":
+        _display_connections_json(connections, detailed)
+    elif format == "compact":
         _display_connections_compact(connections, detailed)
     else:
         _display_connections_table(connections, detailed)
 
-    console.print(f"\n[dim]Total: {len(connections)} connections[/dim]")
+    # Don't show total count for JSON format
+    if format != "json":
+        console.print(f"\n[dim]Total: {len(connections)} connections[/dim]")
 
 
 def _display_connections_table(connections, detailed=False):
@@ -483,6 +494,73 @@ def _display_connections_compact(connections, detailed=False):
                     console.print(f"     [dim]{detail}[/dim]")
 
         console.print()  # Empty line between connections
+
+
+def _display_connections_json(connections, detailed=False):
+    """Display connections in JSON format.
+
+    Args:
+        connections: List of SSHConnection objects to display
+        detailed: Whether to include detailed information in output
+    """
+
+    def _serialize_connection(conn):
+        """Convert SSHConnection object to JSON-serializable dictionary.
+
+        Args:
+            conn: SSHConnection object to serialize
+
+        Returns:
+            Dictionary representation of the connection
+        """
+        # Base connection data that's always included
+        data = {
+            "name": conn.name,
+            "host": conn.host,
+            "user": conn.user,
+            "port": conn.port,
+        }
+
+        # Add optional fields if they exist
+        if conn.hostname and conn.hostname != conn.host:
+            data["hostname"] = conn.hostname
+
+        if conn.identity_file:
+            data["identity_file"] = conn.identity_file
+
+        # Include detailed information if requested
+        if detailed:
+            # Advanced SSH options
+            if conn.proxy_jump:
+                data["proxy_jump"] = conn.proxy_jump
+            if conn.local_forward:
+                data["local_forward"] = conn.local_forward
+            if conn.remote_forward:
+                data["remote_forward"] = conn.remote_forward
+
+            # Metadata
+            if conn.notes:
+                data["notes"] = conn.notes
+
+            # Timestamps (convert to ISO format for JSON compatibility)
+            data["created_at"] = (
+                conn.created_at.isoformat() if conn.created_at else None
+            )
+            data["last_used"] = conn.last_used.isoformat() if conn.last_used else None
+            data["use_count"] = conn.use_count
+
+        return data
+
+    # Convert all connections to JSON-serializable format
+    json_data = {
+        "connections": [_serialize_connection(conn) for conn in connections],
+        "total_count": len(connections),
+        "detailed": detailed,
+    }
+
+    # Output formatted JSON to console
+    # Using print() instead of console.print() to ensure clean JSON output
+    print(json.dumps(json_data, indent=2, ensure_ascii=False))
 
 
 def _find_connection_by_ref(config_manager, connection_ref: str):
