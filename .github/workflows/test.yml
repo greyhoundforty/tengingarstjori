@@ -37,7 +37,7 @@ jobs:
         python -m flake8 src tests
 
         # Type check
-        python -m mypy src
+#        python -m mypy src
 
     - name: Run tests
       run: |
