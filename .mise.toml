@@ -444,6 +444,36 @@ else
 fi
 '''
 
+# Test PyPI Installation Testing
+[tasks."test:pypi-install"]
+description = "Test installation from Test PyPI using multiple methods"
+run = '''
+echo "🧪 Testing Test PyPI installation..."
+chmod +x scripts/test_pypi_installation.sh
+./scripts/test_pypi_installation.sh
+'''
+
+[tasks."test:docker-install"]
+description = "Quick Docker test of Test PyPI installation"
+run = '''
+echo "🐳 Testing Docker installation from Test PyPI..."
+docker run --rm python:3.11-slim bash -c "pip install --index-url https://test.pypi.org/simple/ tengingarstjori && tg --version && echo 'Docker test passed!'"
+'''
+
+[tasks."test:local-install"]
+description = "Test local virtual environment installation from Test PyPI"
+run = '''
+echo "🌐 Testing local venv installation from Test PyPI..."
+python -m venv test-pypi-local
+source test-pypi-local/bin/activate
+pip install --index-url https://test.pypi.org/simple/ tengingarstjori
+python -c "import tengingarstjori; print(f'Success! Version: {tengingarstjori.__version__}')"
+tg --version
+deactivate
+rm -rf test-pypi-local
+echo "✅ Local test passed!"
+'''
+
 # Release Management Tasks
 [tasks."release:prepare"]
 description = "Prepare for release (check everything is ready)"
