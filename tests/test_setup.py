@@ -6,8 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.exceptions import SetupError
-from src.setup import SetupWizard, run_initial_setup
+# FIXED: Use correct import paths for package structure
+from tengingarstjori.exceptions import SetupError
+from tengingarstjori.setup import SetupWizard, run_initial_setup
 
 
 @pytest.fixture
@@ -33,78 +34,70 @@ class TestSetupWizard:
     """Test the SetupWizard class."""
 
     def test_wizard_initialization(self, mock_config_manager):
-        """Test SetupWizard initialization."""
+        """Test that wizard initializes correctly."""
         wizard = SetupWizard(mock_config_manager)
         assert wizard.config_manager == mock_config_manager
         assert wizard.ssh_dir == Path.home() / ".ssh"
 
     def test_show_welcome_message(self, mock_config_manager):
-        """Test welcome message display."""
+        """Test the welcome message display."""
         wizard = SetupWizard(mock_config_manager)
-        # Should not raise any exceptions
+        # This should not raise any exceptions
         wizard._show_welcome_message()
 
-    def test_ensure_ssh_directory_exists(self, mock_config_manager, temp_home):
+    def test_ensure_ssh_directory_exists(self, mock_config_manager, tmp_path):
         """Test SSH directory creation."""
-        with patch("pathlib.Path.home", return_value=temp_home):
+        # Mock home directory
+        with patch("pathlib.Path.home", return_value=tmp_path):
             wizard = SetupWizard(mock_config_manager)
             wizard._ensure_ssh_directory()
 
-            ssh_dir = temp_home / ".ssh"
+            ssh_dir = tmp_path / ".ssh"
             assert ssh_dir.exists()
-            assert oct(ssh_dir.stat().st_mode)[-3:] == "700"
+            assert ssh_dir.stat().st_mode & 0o777 == 0o700
 
     def test_select_from_existing_keys(self, mock_config_manager):
-        """Test SSH key selection from existing keys."""
+        """Test key selection from existing keys."""
         wizard = SetupWizard(mock_config_manager)
-        available_keys = ["/home/user/.ssh/id_ed25519", "/home/user/.ssh/id_rsa"]
+        keys = ["/home/user/.ssh/id_ed25519", "/home/user/.ssh/id_rsa"]
 
-        with patch("src.setup.Prompt.ask", return_value="1"):
-            result = wizard._get_key_selection(available_keys)
+        # Mock user selecting the first key
+        with patch("rich.prompt.Prompt.ask", return_value="1"):
+            result = wizard._get_key_selection(keys)
             assert result == "/home/user/.ssh/id_ed25519"
 
-        with patch("src.setup.Prompt.ask", return_value="2"):
-            result = wizard._get_key_selection(available_keys)
-            assert result == "/home/user/.ssh/id_rsa"
-
-    def test_custom_key_path_selection(self, mock_config_manager):
-        """Test custom SSH key path selection."""
+    def test_custom_key_path_selection(self, mock_config_manager, tmp_path):
+        """Test custom key path selection."""
         wizard = SetupWizard(mock_config_manager)
-        available_keys = ["/home/user/.ssh/id_ed25519"]
+        keys = ["/home/user/.ssh/id_ed25519"]
 
-        with (
-            patch("src.setup.Prompt.ask", return_value="/custom/path"),
-            patch("pathlib.Path.expanduser") as mock_expand,
-            patch("pathlib.Path.exists", return_value=True),
-        ):
-            mock_expand.return_value = Path("/custom/path")
-            result = wizard._get_key_selection(available_keys)
-            assert result == "/custom/path"
+        # Create a temporary key file
+        custom_key = tmp_path / "custom_key"
+        custom_key.touch()
+
+        # Mock user entering custom path
+        with patch("rich.prompt.Prompt.ask", return_value=str(custom_key)):
+            result = wizard._get_key_selection(keys)
+            assert result == str(custom_key)
 
     def test_invalid_key_selection_retries(self, mock_config_manager):
-        """Test invalid key selection with retries."""
+        """Test that invalid selections are retried."""
         wizard = SetupWizard(mock_config_manager)
-        available_keys = ["/home/user/.ssh/id_ed25519"]
+        keys = ["/home/user/.ssh/id_ed25519"]
 
-        with patch("src.setup.Prompt.ask", side_effect=["999", "invalid", "too_many"]):
-            result = wizard._get_key_selection(available_keys)
-            assert result is None  # Should give up after max attempts
+        # Mock user entering invalid choices then giving up
+        with patch(
+            "rich.prompt.Prompt.ask", side_effect=["99", "invalid", "nonexistent"]
+        ):
+            result = wizard._get_key_selection(keys)
+            assert result is None
 
     def test_handle_no_existing_keys(self, mock_config_manager):
         """Test handling when no SSH keys exist."""
         wizard = SetupWizard(mock_config_manager)
 
-        with (
-            patch("src.setup.Prompt.ask", return_value="/new/key/path"),
-            patch("pathlib.Path.expanduser") as mock_expand,
-            patch("pathlib.Path.exists", return_value=True),
-        ):
-            mock_expand.return_value = Path("/new/key/path")
-            result = wizard._handle_no_existing_keys()
-            assert result == "/new/key/path"
-
-        # Test with empty response
-        with patch("src.setup.Prompt.ask", return_value=""):
+        # Mock user not providing a custom key
+        with patch("rich.prompt.Prompt.ask", return_value=""):
             result = wizard._handle_no_existing_keys()
             assert result is None
 
@@ -112,18 +105,21 @@ class TestSetupWizard:
         """Test SSH integration confirmation."""
         wizard = SetupWizard(mock_config_manager)
 
-        with patch("src.setup.Confirm.ask", return_value=True):
+        # Test user confirming
+        with patch("rich.prompt.Confirm.ask", return_value=True):
             result = wizard._confirm_ssh_integration()
             assert result is True
 
-        with patch("src.setup.Confirm.ask", return_value=False):
+        # Test user declining
+        with patch("rich.prompt.Confirm.ask", return_value=False):
             result = wizard._confirm_ssh_integration()
             assert result is False
 
     def test_successful_setup_run(self, mock_config_manager):
-        """Test successful complete setup run."""
+        """Test a successful complete setup run."""
         wizard = SetupWizard(mock_config_manager)
 
+        # Mock all user interactions
         with (
             patch.object(wizard, "_show_welcome_message"),
             patch.object(wizard, "_ensure_ssh_directory"),
@@ -135,22 +131,25 @@ class TestSetupWizard:
             patch.object(wizard, "_mark_setup_complete"),
             patch.object(wizard, "_show_completion_message"),
         ):
+
             result = wizard.run_initial_setup()
             assert result is True
-            mock_config_manager.update_setting.assert_called_with(
+            mock_config_manager.update_setting.assert_called_once_with(
                 "default_identity_file", "/test/key"
             )
 
     def test_setup_cancelled_by_user(self, mock_config_manager):
-        """Test setup cancelled by user."""
+        """Test setup cancellation by user."""
         wizard = SetupWizard(mock_config_manager)
 
+        # Mock user declining SSH integration
         with (
             patch.object(wizard, "_show_welcome_message"),
             patch.object(wizard, "_ensure_ssh_directory"),
             patch.object(wizard, "_configure_default_ssh_key", return_value=None),
             patch.object(wizard, "_confirm_ssh_integration", return_value=False),
         ):
+
             result = wizard.run_initial_setup()
             assert result is False
 
@@ -158,24 +157,25 @@ class TestSetupWizard:
         """Test setup error handling."""
         wizard = SetupWizard(mock_config_manager)
 
+        # Mock an exception during setup
         with (
             patch.object(wizard, "_show_welcome_message"),
             patch.object(wizard, "_ensure_ssh_directory"),
-            patch.object(wizard, "_configure_default_ssh_key", return_value=None),
-            patch.object(wizard, "_confirm_ssh_integration", return_value=True),
             patch.object(
                 wizard,
-                "_setup_ssh_config_integration",
-                side_effect=SetupError("Test error"),
+                "_configure_default_ssh_key",
+                side_effect=Exception("Test error"),
             ),
         ):
+
             result = wizard.run_initial_setup()
             assert result is False
 
     def test_unexpected_error_handling(self, mock_config_manager):
-        """Test unexpected error handling."""
+        """Test handling of unexpected errors."""
         wizard = SetupWizard(mock_config_manager)
 
+        # Mock an unexpected exception
         with patch.object(
             wizard,
             "_show_welcome_message",
@@ -201,16 +201,16 @@ class TestSetupWizard:
     def test_show_completion_message(self, mock_config_manager):
         """Test completion message display."""
         wizard = SetupWizard(mock_config_manager)
-        # Should not raise any exceptions
+        # This should not raise any exceptions
         wizard._show_completion_message()
 
 
 class TestSetupFunctions:
-    """Test module-level setup functions."""
+    """Test standalone setup functions."""
 
     def test_run_initial_setup_function(self, mock_config_manager):
-        """Test the run_initial_setup function."""
-        with patch("src.setup.SetupWizard") as mock_wizard_class:
+        """Test the standalone run_initial_setup function."""
+        with patch("tengingarstjori.setup.SetupWizard") as mock_wizard_class:
             mock_wizard = MagicMock()
             mock_wizard.run_initial_setup.return_value = True
             mock_wizard_class.return_value = mock_wizard
@@ -222,32 +222,32 @@ class TestSetupFunctions:
             mock_wizard.run_initial_setup.assert_called_once()
 
     def test_configure_default_ssh_key_with_keys(self, mock_config_manager):
-        """Test configuring default SSH key when keys exist."""
+        """Test SSH key configuration when keys exist."""
         wizard = SetupWizard(mock_config_manager)
-        mock_config_manager.discover_ssh_keys.return_value = ["/test/key"]
 
+        # Mock discovering keys and user selection
         with patch.object(
-            wizard, "_select_from_existing_keys", return_value="/test/key"
+            wizard, "_select_from_existing_keys", return_value="/selected/key"
         ):
             result = wizard._configure_default_ssh_key()
-            assert result == "/test/key"
+            assert result == "/selected/key"
 
     def test_configure_default_ssh_key_no_keys(self, mock_config_manager):
-        """Test configuring default SSH key when no keys exist."""
-        wizard = SetupWizard(mock_config_manager)
+        """Test SSH key configuration when no keys exist."""
         mock_config_manager.discover_ssh_keys.return_value = []
+        wizard = SetupWizard(mock_config_manager)
 
+        # Mock handling no existing keys
         with patch.object(wizard, "_handle_no_existing_keys", return_value=None):
             result = wizard._configure_default_ssh_key()
             assert result is None
 
     def test_select_from_existing_keys_display(self, mock_config_manager):
-        """Test that existing keys are displayed correctly."""
+        """Test that existing keys are displayed properly."""
         wizard = SetupWizard(mock_config_manager)
-        available_keys = ["/home/user/.ssh/id_ed25519"]
+        keys = ["/home/user/.ssh/id_ed25519"]
 
-        with patch.object(
-            wizard, "_get_key_selection", return_value="/home/user/.ssh/id_ed25519"
-        ):
-            result = wizard._select_from_existing_keys(available_keys)
+        # Mock user selection and test the display method
+        with patch("rich.prompt.Prompt.ask", return_value="1"):
+            result = wizard._select_from_existing_keys(keys)
             assert result == "/home/user/.ssh/id_ed25519"

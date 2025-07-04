@@ -75,55 +75,64 @@ class TestCLICommandsCoverage:
             assert result.exit_code == 0
             assert "Configuration" in result.output
 
-    def test_config_command_update_with_available_keys(
-        self, runner, mock_config_manager
-    ):
+    def test_config_command_update_with_available_keys(self, runner):
         """Test config command updating key with available keys."""
-        mock_config_manager.get_setting = MagicMock(return_value="~/.ssh/id_rsa")
-        mock_config_manager.discover_ssh_keys = MagicMock(
-            return_value=["~/.ssh/id_rsa", "~/.ssh/id_ed25519"]
-        )
+        with patch("src.cli.SSHConfigManager") as mock_cm:
+            manager = MagicMock()
+            manager.get_setting.return_value = "~/.ssh/id_rsa"
+            manager.discover_ssh_keys.return_value = [
+                "~/.ssh/id_rsa",
+                "~/.ssh/id_ed25519",
+            ]
+            manager.update_setting = MagicMock()  # Ensure it's a Mock
+            mock_cm.return_value = manager
 
-        with (
-            patch("src.cli.Confirm.ask", return_value=True),
-            patch("src.cli.Prompt.ask", return_value="2"),
-        ):
-            result = runner.invoke(config)
+            with (
+                patch("src.cli.Confirm.ask", return_value=True),
+                patch("src.cli.Prompt.ask", return_value="2"),
+            ):
+                result = runner.invoke(config)
 
-            assert result.exit_code == 0
-            mock_config_manager.update_setting.assert_called()
+                assert result.exit_code == 0
+                manager.update_setting.assert_called()
 
-    def test_config_command_update_with_custom_path(self, runner, mock_config_manager):
+    def test_config_command_update_with_custom_path(self, runner):
         """Test config command updating key with custom path."""
-        mock_config_manager.get_setting = MagicMock(return_value="~/.ssh/id_rsa")
-        mock_config_manager.discover_ssh_keys = MagicMock(
-            return_value=["~/.ssh/id_rsa"]
-        )
+        with patch("src.cli.SSHConfigManager") as mock_cm:
+            manager = MagicMock()
+            manager.get_setting.return_value = "~/.ssh/id_rsa"
+            manager.discover_ssh_keys.return_value = ["~/.ssh/id_rsa"]
+            manager.update_setting = MagicMock()  # Ensure it's a Mock
+            mock_cm.return_value = manager
 
-        with (
-            patch("src.cli.Confirm.ask", return_value=True),
-            patch("src.cli.Prompt.ask", return_value="/custom/key/path"),
-        ):
-            result = runner.invoke(config)
+            with (
+                patch("src.cli.Confirm.ask", return_value=True),
+                patch("src.cli.Prompt.ask", return_value="/custom/key/path"),
+            ):
+                result = runner.invoke(config)
 
-            assert result.exit_code == 0
-            mock_config_manager.update_setting.assert_called_with(
-                "default_identity_file", "/custom/key/path"
-            )
+                assert result.exit_code == 0
+                manager.update_setting.assert_called_with(
+                    "default_identity_file", "/custom/key/path"
+                )
 
-    def test_config_command_no_available_keys(self, runner, mock_config_manager):
+    def test_config_command_no_available_keys(self, runner):
         """Test config command with no available keys."""
-        mock_config_manager.get_setting = MagicMock(return_value="None")
-        mock_config_manager.discover_ssh_keys = MagicMock(return_value=[])
+        with patch("src.cli.SSHConfigManager") as mock_cm:
+            manager = MagicMock()
+            manager.get_setting.return_value = "None"
+            manager.discover_ssh_keys.return_value = []
+            manager.update_setting = MagicMock()  # Ensure it's a Mock
+            mock_cm.return_value = manager
 
-        with (
-            patch("src.cli.Confirm.ask", return_value=True),
-            patch("src.cli.Prompt.ask", return_value="/new/key/path"),
-        ):
-            result = runner.invoke(config)
+            with (
+                patch("src.cli.Confirm.ask", return_value=True),
+                patch("src.cli.Prompt.ask", return_value="/new/key/path"),
+            ):
+                result = runner.invoke(config)
 
-            assert result.exit_code == 0
-            mock_config_manager.update_setting.assert_called()
+                assert result.exit_code == 0
+                manager.update_setting.assert_called()
 
     def test_fix_config_command_with_existing_config(self, runner):
         """Test fix_config command with existing SSH config."""

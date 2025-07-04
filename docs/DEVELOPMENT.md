@@ -117,7 +117,7 @@ tests/
 ### 8. SSH Config Integration Details
 
 **Safe Integration Method:**
-1. Backup original `~/.ssh/config` 
+1. Backup original `~/.ssh/config`
 2. Create `~/.ssh/config.tengingarstjóri` (managed)
 3. Add `Include ~/.ssh/config.tengingarstjóri` to main config
 4. All `tg` changes only affect the managed file

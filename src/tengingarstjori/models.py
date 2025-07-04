@@ -133,6 +133,13 @@ class SSHConnection(BaseModel):
         # Remove extra whitespace
         forward = forward.strip()
 
+        # Reject completely invalid formats early
+        if not forward or forward.count(":") < 1:
+            raise ValueError(
+                f"Invalid {forward_type} format: '{forward}'. "
+                f"Must contain at least one colon"
+            )
+
         # Pattern for different forward formats:
         # 1. "port:target:port" -> "port target:port"
         # 2. "bind_address:port:target:port" -> "bind_address:port target:port"
@@ -148,12 +155,23 @@ class SSHConnection(BaseModel):
 
                 # Validate remote part has format "host:port"
                 if ":" in remote_part:
+                    remote_host, remote_port = remote_part.rsplit(":", 1)
+                    if not remote_port.isdigit():
+                        raise ValueError(
+                            f"Invalid {forward_type} format: '{forward}'. "
+                            f"Remote port must be numeric, got '{remote_port}'"
+                        )
                     return forward  # Already in correct format
                 else:
                     raise ValueError(
                         f"Invalid {forward_type} format: '{forward}'. "
                         f"Remote part must be 'host:port'"
                     )
+            else:
+                raise ValueError(
+                    f"Invalid {forward_type} format: '{forward}'. "
+                    f"When using space separator, format must be 'local_spec remote_host:remote_port'"
+                )
 
         # Handle colon-separated format that needs conversion
         colon_parts = forward.split(":")
@@ -166,14 +184,21 @@ class SSHConnection(BaseModel):
             if not local_port.isdigit():
                 raise ValueError(
                     f"Invalid {forward_type} format: '{forward}'. "
-                    f"Local port must be numeric"
+                    f"Local port must be numeric, got '{local_port}'"
                 )
 
             # Validate remote_port is numeric
             if not remote_port.isdigit():
                 raise ValueError(
                     f"Invalid {forward_type} format: '{forward}'. "
-                    f"Remote port must be numeric"
+                    f"Remote port must be numeric, got '{remote_port}'"
+                )
+
+            # Validate remote_host is not empty
+            if not remote_host.strip():
+                raise ValueError(
+                    f"Invalid {forward_type} format: '{forward}'. "
+                    f"Remote host cannot be empty"
                 )
 
             return f"{local_port} {remote_host}:{remote_port}"
@@ -186,13 +211,26 @@ class SSHConnection(BaseModel):
             if not local_port.isdigit():
                 raise ValueError(
                     f"Invalid {forward_type} format: '{forward}'. "
-                    f"Local port must be numeric"
+                    f"Local port must be numeric, got '{local_port}'"
                 )
 
             if not remote_port.isdigit():
                 raise ValueError(
                     f"Invalid {forward_type} format: '{forward}'. "
-                    f"Remote port must be numeric"
+                    f"Remote port must be numeric, got '{remote_port}'"
+                )
+
+            # Validate components are not empty
+            if not bind_addr.strip():
+                raise ValueError(
+                    f"Invalid {forward_type} format: '{forward}'. "
+                    f"Bind address cannot be empty"
+                )
+
+            if not remote_host.strip():
+                raise ValueError(
+                    f"Invalid {forward_type} format: '{forward}'. "
+                    f"Remote host cannot be empty"
                 )
 
             return f"{bind_addr}:{local_port} {remote_host}:{remote_port}"

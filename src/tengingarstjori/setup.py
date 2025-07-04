@@ -12,14 +12,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
+from .exceptions import SetupError
+
 console = Console()
 logger = logging.getLogger(__name__)
-
-
-class SetupError(Exception):
-    """Exception raised during setup process."""
-
-    pass
 
 
 class SetupWizard:
@@ -63,6 +59,13 @@ class SetupWizard:
 
         except SetupError as e:
             console.print(f"[red]Setup failed: {e}[/red]")
+            return False
+        except EOFError:
+            # FIXED: Handle EOF gracefully for testing environments
+            logger.warning("EOF encountered during setup - likely in test environment")
+            console.print(
+                "[yellow]Setup cancelled due to input stream closure[/yellow]"
+            )
             return False
         except Exception as e:
             logger.exception("Unexpected error during setup")
@@ -129,10 +132,17 @@ class SetupWizard:
         """
         max_attempts = 3
         for attempt in range(max_attempts):
-            choice = Prompt.ask(
-                "[cyan]Choose default key (number) or enter custom path[/cyan]",
-                default="1",
-            )
+            try:
+                choice = Prompt.ask(
+                    "[cyan]Choose default key (number) or enter custom path[/cyan]",
+                    default="1",
+                )
+            except EOFError:
+                # FIXED: Handle EOF during key selection
+                console.print(
+                    "[yellow]Input stream closed, skipping key selection[/yellow]"
+                )
+                return None
 
             # Try to parse as number
             if choice.isdigit():
@@ -168,9 +178,16 @@ class SetupWizard:
             "You may want to generate one with: [dim]ssh-keygen -t ed25519[/dim]\n"
         )
 
-        default_key = Prompt.ask(
-            "[cyan]Enter default SSH key path (optional)[/cyan]", default=""
-        )
+        try:
+            default_key = Prompt.ask(
+                "[cyan]Enter default SSH key path (optional)[/cyan]", default=""
+            )
+        except EOFError:
+            # FIXED: Handle EOF during key path entry
+            console.print(
+                "[yellow]Input stream closed, skipping key configuration[/yellow]"
+            )
+            return None
 
         if default_key and Path(default_key).expanduser().exists():
             return str(Path(default_key).expanduser())
@@ -191,9 +208,16 @@ class SetupWizard:
         console.print("  • Add one include line to your main SSH config")
         console.print("  • Keep your existing SSH config untouched")
 
-        return Confirm.ask(
-            "\n[cyan]Proceed with SSH config integration?[/cyan]", default=True
-        )
+        try:
+            return Confirm.ask(
+                "\n[cyan]Proceed with SSH config integration?[/cyan]", default=True
+            )
+        except EOFError:
+            # FIXED: Handle EOF during confirmation - default to False for safety
+            console.print(
+                "[yellow]Input stream closed, skipping SSH config integration[/yellow]"
+            )
+            return False
 
     def _setup_ssh_config_integration(self) -> None:
         """Set up SSH config integration with error handling."""

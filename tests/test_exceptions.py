@@ -177,7 +177,7 @@ def test_invalid_ssh_key_error():
 
 def test_backup_error():
     """Test backup error."""
-    original_error = PermissionError("Permission denied")
+    original_error = OSError("Permission denied")
     error = BackupError("/source/path", "/backup/path", original_error)
 
     assert isinstance(error, TengingarstjoriError)
@@ -192,19 +192,19 @@ def test_exception_hierarchy():
     """Test that exception hierarchy is correct."""
     # Test that all custom exceptions inherit from TengingarstjoriError
     exceptions_to_test = [
-        SSHConfigError,
-        ConnectionError,
-        ValidationError,
-        SetupError,
-        FileOperationError,
-        KeyDiscoveryError,
-        CLIError,
-        ConfigurationError,
-        PermissionError,
+        (SSHConfigError, ("Test message",)),
+        (ConnectionError, ("Test message",)),
+        (ValidationError, ("field", "value", "reason")),
+        (SetupError, ("Test message",)),
+        (FileOperationError, ("read", "/path", Exception())),
+        (KeyDiscoveryError, ("Test message",)),
+        (CLIError, ("command", "Test message")),
+        (ConfigurationError, ("Test message",)),
+        (PermissionError, ("/resource", "operation")),
     ]
 
-    for exception_class in exceptions_to_test:
-        error = exception_class("Test message")
+    for exception_class, args in exceptions_to_test:
+        error = exception_class(*args)
         assert isinstance(error, TengingarstjoriError)
         assert isinstance(error, Exception)
 
