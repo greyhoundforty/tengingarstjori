@@ -144,11 +144,17 @@ def _get_advanced_options(
             proxy_jump = Prompt.ask("[cyan]ProxyJump (optional)[/cyan]", default="")
         if not local_forward:
             local_forward = Prompt.ask(
-                "[cyan]LocalForward (optional)[/cyan]", default=""
+                "[cyan]LocalForward (optional)[/cyan]\n"
+                "[dim]Examples: 3306:localhost:3306, 8080:localhost:80,9000:localhost:9000[/dim]\n"
+                "[cyan]Enter port forwards[/cyan]",
+                default="",
             )
         if not remote_forward:
             remote_forward = Prompt.ask(
-                "[cyan]RemoteForward (optional)[/cyan]", default=""
+                "[cyan]RemoteForward (optional)[/cyan]\n"
+                "[dim]Examples: 8080:localhost:80, 3000:localhost:3000[/dim]\n"
+                "[cyan]Enter remote forwards[/cyan]",
+                default="",
             )
 
     return proxy_jump, local_forward, remote_forward
@@ -195,9 +201,10 @@ def add(
         tg add -n internal --host 10.0.1.100 -u admin --proxy-jump bastion.company.com
         tg add -n db-server --host 192.168.10.50 -u dbadmin --proxy-jump "jumpuser@bastion.company.com:2222"
 
-        # Port forwarding examples
+        # Port forwarding examples (auto-corrected to proper SSH syntax)
         tg add -n db-tunnel --host db.company.com -u dbuser --local-forward "3306:localhost:3306"
         tg add -n dev-server --host dev.company.com -u dev --local-forward "8080:localhost:80,3306:db:3306"
+        tg add -n redis-tunnel --host redis.company.com -u admin --local-forward "6379:localhost:6379"
 
         # Complex example with multiple options
         tg add -n prod-db --host prod-db.internal -u produser \
@@ -287,19 +294,29 @@ def add(
     def clean_option(value):
         return value if value and value.strip() else None
 
-    # Create connection
-    connection = SSHConnection(
-        name=name,
-        host=host,
-        hostname=clean_option(hostname),
-        port=port,
-        user=user,
-        identity_file=clean_option(key),
-        proxy_jump=clean_option(proxy_jump),
-        local_forward=clean_option(local_forward),
-        remote_forward=clean_option(remote_forward),
-        notes=clean_option(notes),
-    )
+    # Create connection with validation
+    try:
+        connection = SSHConnection(
+            name=name,
+            host=host,
+            hostname=clean_option(hostname),
+            port=port,
+            user=user,
+            identity_file=clean_option(key),
+            proxy_jump=clean_option(proxy_jump),
+            local_forward=clean_option(local_forward),
+            remote_forward=clean_option(remote_forward),
+            notes=clean_option(notes),
+        )
+    except ValueError as e:
+        console.print(f"[red]Configuration error: {e}[/red]")
+        console.print(
+            "[yellow]Tip: LocalForward format should be 'local_port:remote_host:remote_port'[/yellow]"
+        )
+        console.print(
+            "[yellow]Examples: '3306:localhost:3306' or '8080:localhost:80,3000:localhost:3000'[/yellow]"
+        )
+        return
 
     if config_manager.add_connection(connection):
         console.print(f"[green]✓[/green] Added connection '{name}'")
@@ -772,6 +789,127 @@ def refresh():
         console.print(f"[dim]Config file: {config_manager.managed_config}[/dim]")
     except Exception as e:
         console.print(f"[red]Error refreshing config: {e}[/red]")
+
+
+@cli.command()
+def validate():
+    """Validate SSH configuration syntax for all connections."""
+    config_manager = SSHConfigManager()
+    connections = config_manager.list_connections()
+
+    if not connections:
+        console.print("[yellow]No connections to validate.[/yellow]")
+        return
+
+    console.print(
+        Panel("🔍 [bold blue]SSH Configuration Validation[/bold blue]", style="blue")
+    )
+
+    issues_found = False
+
+    for connection in connections:
+        # Check LocalForward syntax
+        if connection.local_forward:
+            try:
+                # Test validation by creating a new connection with same data
+                test_data = connection.model_dump()
+                SSHConnection.model_validate(test_data)
+                console.print(
+                    f"[green]✓[/green] {connection.name}: LocalForward syntax OK"
+                )
+            except ValueError as e:
+                console.print(
+                    f"[red]✗[/red] {connection.name}: LocalForward issue - {e}"
+                )
+                issues_found = True
+
+        # Check RemoteForward syntax
+        if connection.remote_forward:
+            try:
+                # Test validation by creating a new connection with same data
+                test_data = connection.model_dump()
+                SSHConnection.model_validate(test_data)
+                if (
+                    not connection.local_forward
+                ):  # Only show if we didn't already validate above
+                    console.print(
+                        f"[green]✓[/green] {connection.name}: RemoteForward syntax OK"
+                    )
+            except ValueError as e:
+                console.print(
+                    f"[red]✗[/red] {connection.name}: RemoteForward issue - {e}"
+                )
+                issues_found = True
+
+    if not issues_found:
+        console.print("\n[green]All configurations are valid![/green]")
+    else:
+        console.print(
+            "\n[yellow]Found configuration issues. Use 'tg fix-forwards' to automatically correct them.[/yellow]"
+        )
+
+
+@cli.command()
+def fix_forwards():
+    """Fix LocalForward and RemoteForward syntax in existing connections."""
+    config_manager = SSHConfigManager()
+    connections = config_manager.list_connections()
+
+    if not connections:
+        console.print("[yellow]No connections to fix.[/yellow]")
+        return
+
+    console.print(
+        Panel("🔧 [bold blue]Fix Port Forwarding Syntax[/bold blue]", style="blue")
+    )
+
+    fixed_count = 0
+
+    for connection in connections:
+        original_local = connection.local_forward
+        original_remote = connection.remote_forward
+        needs_fix = False
+
+        # Check if LocalForward needs fixing (has old colon syntax)
+        if original_local and ":" in original_local and " " not in original_local:
+            needs_fix = True
+
+        # Check if RemoteForward needs fixing
+        if original_remote and ":" in original_remote and " " not in original_remote:
+            needs_fix = True
+
+        if needs_fix:
+            try:
+                # Create new connection data which will auto-fix the syntax
+                fixed_data = connection.model_dump()
+                fixed_connection = SSHConnection.model_validate(fixed_data)
+
+                # Update the connection in the database
+                if config_manager.update_connection(connection.id, fixed_connection):
+                    console.print(f"[green]✓[/green] Fixed {connection.name}")
+                    if original_local != fixed_connection.local_forward:
+                        console.print(
+                            f"  [dim]LocalForward: {original_local} → {fixed_connection.local_forward}[/dim]"
+                        )
+                    if original_remote != fixed_connection.remote_forward:
+                        console.print(
+                            f"  [dim]RemoteForward: {original_remote} → {fixed_connection.remote_forward}[/dim]"
+                        )
+                    fixed_count += 1
+                else:
+                    console.print(f"[red]✗[/red] Failed to update {connection.name}")
+
+            except Exception as e:
+                console.print(f"[red]✗[/red] Could not fix {connection.name}: {e}")
+
+    if fixed_count > 0:
+        console.print(
+            f"\n[green]Fixed {fixed_count} connections. Regenerating SSH config...[/green]"
+        )
+        config_manager._update_ssh_config()
+        console.print("[green]✓[/green] SSH configuration updated")
+    else:
+        console.print("\n[yellow]No connections needed fixing.[/yellow]")
 
 
 @cli.command()
