@@ -20,7 +20,9 @@ class SSHConnection(BaseModel):
     )
     port: int = Field(default=22, description="SSH port")
     user: str = Field(..., description="Username for SSH")
-    identity_file: Optional[str] = Field(None, description="Path to SSH private key")
+    identity_file: Optional[str] = Field(
+        default=None, description="Path to SSH private key"
+    )
     proxy_jump: Optional[str] = Field(None, description="ProxyJump configuration")
     local_forward: Optional[str] = Field(None, description="LocalForward configuration")
     remote_forward: Optional[str] = Field(

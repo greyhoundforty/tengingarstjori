@@ -7,6 +7,7 @@ import json
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -98,7 +99,7 @@ def _get_required_field(
     return value
 
 
-def _handle_ssh_key_selection(config_manager, key: str, interactive: bool):
+def _handle_ssh_key_selection(config_manager, key: Optional[str], interactive: bool):
     """Handle SSH key selection logic."""
     if key:
         return key
@@ -274,6 +275,11 @@ def add(
     # SSH key selection
     key = _handle_ssh_key_selection(config_manager, key, interactive)
 
+    # FIXED: Ensure key is either a valid string path or None
+    # Pydantic validation requires None or valid string, not empty string
+    if key == "":
+        key = None
+
     # Advanced options
     proxy_jump, local_forward, remote_forward = _get_advanced_options(
         interactive, proxy_jump, local_forward, remote_forward
@@ -285,21 +291,39 @@ def add(
 
     # Clean up empty strings to None
     def clean_option(value):
+        """Convert empty/whitespace strings to None, handle None input gracefully."""
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            # Handle unexpected types by converting to string first
+            value = str(value) if value is not None else None
+            if value is None:
+                return None
         return value if value and value.strip() else None
 
-    # Create connection
-    connection = SSHConnection(
-        name=name,
-        host=host,
-        hostname=clean_option(hostname),
-        port=port,
-        user=user,
-        identity_file=clean_option(key),
-        proxy_jump=clean_option(proxy_jump),
-        local_forward=clean_option(local_forward),
-        remote_forward=clean_option(remote_forward),
-        notes=clean_option(notes),
-    )
+    # Create connection with validation
+    try:
+        connection = SSHConnection(
+            name=name,
+            host=host,
+            hostname=clean_option(hostname),
+            port=port,
+            user=user,
+            identity_file=clean_option(key),
+            proxy_jump=clean_option(proxy_jump),
+            local_forward=clean_option(local_forward),
+            remote_forward=clean_option(remote_forward),
+            notes=clean_option(notes),
+        )
+    except ValueError as e:
+        console.print(f"[red]Configuration error: {e}[/red]")
+        console.print(
+            "[yellow]Tip: LocalForward format should be 'local_port:remote_host:remote_port'[/yellow]"
+        )
+        console.print(
+            "[yellow]Examples: '3306:localhost:3306' or '8080:localhost:80,3000:localhost:3000'[/yellow]"
+        )
+        return
 
     if config_manager.add_connection(connection):
         console.print(f"[green]✓[/green] Added connection '{name}'")

@@ -281,6 +281,11 @@ def add(
     # SSH key selection
     key = _handle_ssh_key_selection(config_manager, key, interactive)
 
+    # FIXED: Ensure key is either a valid string path or None
+    # Pydantic validation requires None or valid string, not empty string
+    if key == "":
+        key = None
+
     # Advanced options
     proxy_jump, local_forward, remote_forward = _get_advanced_options(
         interactive, proxy_jump, local_forward, remote_forward
@@ -556,12 +561,9 @@ def _display_connections_json(connections, detailed=False):
 
         return data
 
-    # Convert all connections to JSON-serializable format
-    json_data = {
-        "connections": [_serialize_connection(conn) for conn in connections],
-        "total_count": len(connections),
-        "detailed": detailed,
-    }
+    # FIXED: Return just the list of connections for compatibility with tests
+    # The test expects a simple list, not a metadata object
+    json_data = [_serialize_connection(conn) for conn in connections]
 
     # Output formatted JSON to console
     print(json.dumps(json_data, indent=2, ensure_ascii=False))
@@ -676,28 +678,37 @@ def config():
 
     console.print(settings_table)
 
-    # Option to change default key
-    if Confirm.ask("\n[cyan]Update default SSH key?[/cyan]"):
-        available_keys = config_manager.discover_ssh_keys()
+    # FIXED: Handle EOF gracefully for test environments
+    try:
+        # Option to change default key
+        if Confirm.ask("\n[cyan]Update default SSH key?[/cyan]"):
+            available_keys = config_manager.discover_ssh_keys()
 
-        if available_keys:
-            console.print("\n[yellow]Available SSH keys:[/yellow]")
-            for i, key in enumerate(available_keys, 1):
-                console.print(f"  {i}. {key}")
+            if available_keys:
+                console.print("\n[yellow]Available SSH keys:[/yellow]")
+                for i, key in enumerate(available_keys, 1):
+                    console.print(f"  {i}. {key}")
 
-            choice = Prompt.ask("[cyan]Select key (number) or enter custom path[/cyan]")
+                choice = Prompt.ask(
+                    "[cyan]Select key (number) or enter custom path[/cyan]"
+                )
 
-            if choice.isdigit() and 1 <= int(choice) <= len(available_keys):
-                new_key = available_keys[int(choice) - 1]
+                if choice.isdigit() and 1 <= int(choice) <= len(available_keys):
+                    new_key = available_keys[int(choice) - 1]
+                else:
+                    new_key = choice
+
+                config_manager.update_setting("default_identity_file", new_key)
+                console.print(f"[green]✓[/green] Updated default SSH key to: {new_key}")
             else:
-                new_key = choice
-
-            config_manager.update_setting("default_identity_file", new_key)
-            console.print(f"[green]✓[/green] Updated default SSH key to: {new_key}")
-        else:
-            new_key = Prompt.ask("[cyan]Enter SSH key path[/cyan]")
-            config_manager.update_setting("default_identity_file", new_key)
-            console.print(f"[green]✓[/green] Updated default SSH key to: {new_key}")
+                new_key = Prompt.ask("[cyan]Enter SSH key path[/cyan]")
+                config_manager.update_setting("default_identity_file", new_key)
+                console.print(f"[green]✓[/green] Updated default SSH key to: {new_key}")
+    except EOFError:
+        # FIXED: Handle EOF gracefully - common in test environments
+        console.print(
+            "[yellow]Configuration display completed (non-interactive mode)[/yellow]"
+        )
 
 
 @cli.command()
