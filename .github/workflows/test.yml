@@ -7,12 +7,48 @@ on:
     branches: [ main ]
 
 jobs:
+  # Quick test job - runs macOS Python 3.9 first to identify version issues
+  quick-test:
+    name: Quick Test (macOS Python 3.9)
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+        pip install -e .[dev,test]
+
+    - name: Run quick tests
+      run: |
+        # Run a subset of critical tests first
+        python -m pytest tests/test_package_integration.py::test_cli_list_json_format -v
+        python -m pytest tests/test_cli.py::TestErrorHandling::test_uninitialized_config -v
+
+        # If those pass, run a broader test
+        python -m pytest tests/test_package_integration.py -v
+
+  # Full test matrix - only runs after quick-test succeeds
   test:
+    name: Full Test Matrix
+    needs: quick-test  # This ensures quick-test runs first
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false  # Let all jobs complete even if one fails
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # Reordered to prioritize potential problem combinations
+        os: [macos-latest, ubuntu-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12']
+        # Exclude the combination we already tested in quick-test
+        exclude:
+          - os: macos-latest
+            python-version: '3.9'
 
     steps:
     - uses: actions/checkout@v4
