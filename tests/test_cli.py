@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from src.cli import add, cli, config, list, refresh, remove, show
-from src.config_manager import SSHConfigManager
-from src.models import SSHConnection
+from tengingarstjori.cli import add, cli, config, list, refresh, remove, show
+from tengingarstjori.config_manager import SSHConfigManager
+from tengingarstjori.models import SSHConnection
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def temp_config_dir():
 @pytest.fixture
 def mock_config_manager(temp_config_dir):
     """Create a mock config manager with temporary directory."""
-    with patch("src.cli.SSHConfigManager") as mock_cm:
+    with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
         manager = SSHConfigManager(config_dir=temp_config_dir)
         manager.mark_initialized()  # Mark as initialized
         mock_cm.return_value = manager
@@ -153,7 +153,7 @@ class TestCLICommands:
         conn = SSHConnection(name="remove-test", host="remove.com", user="removeuser")
         mock_config_manager.add_connection(conn)
 
-        with patch("src.cli.Confirm.ask") as mock_confirm:
+        with patch("rich.prompt.Confirm.ask") as mock_confirm:
             mock_confirm.return_value = True  # Confirm deletion
 
             result = runner.invoke(remove, ["remove-test"])
@@ -255,7 +255,7 @@ class TestErrorHandling:
 
     def test_uninitialized_config(self, runner):
         """Test commands when config manager is not initialized."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             manager.is_initialized.return_value = False
             mock_cm.return_value = manager
@@ -274,4 +274,11 @@ class TestErrorHandling:
             )
 
             assert result.exit_code == 0
-            assert "Please run 'tg init' first" in result.output
+            # FIXED: Account for Rich formatting - check for key phrases
+            # Rich may wrap the text in ANSI codes or panels, so check for the core message
+            output_text = result.output.lower()
+            assert (
+                "please run" in output_text
+                and "tg init" in output_text
+                and "first" in output_text
+            )

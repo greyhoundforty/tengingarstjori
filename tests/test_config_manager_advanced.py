@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from src.config_manager import SSHConfigManager
-from src.models import SSHConnection
+from tengingarstjori.config_manager import SSHConfigManager
+from tengingarstjori.models import SSHConnection
 
 
 @pytest.fixture

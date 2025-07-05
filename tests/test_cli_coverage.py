@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from src.cli import cli, config, fix_config, init, refresh
-from src.config_manager import SSHConfigManager
-from src.models import SSHConnection
+from tengingarstjori.cli import cli, config, fix_config, init, refresh
+from tengingarstjori.config_manager import SSHConfigManager
+from tengingarstjori.models import SSHConnection
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def temp_config_dir():
 @pytest.fixture
 def mock_config_manager(temp_config_dir):
     """Create a mock config manager."""
-    with patch("src.cli.SSHConfigManager") as mock_cm:
+    with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
         manager = SSHConfigManager(config_dir=temp_config_dir)
         manager.mark_initialized()
         mock_cm.return_value = manager
@@ -40,7 +40,7 @@ class TestCLICommandsCoverage:
 
     def test_init_command_already_initialized(self, runner):
         """Test init command when already initialized."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             manager.is_initialized.return_value = True
             mock_cm.return_value = manager
@@ -53,8 +53,8 @@ class TestCLICommandsCoverage:
     def test_init_command_new_setup(self, runner):
         """Test init command for new setup."""
         with (
-            patch("src.cli.SSHConfigManager") as mock_cm,
-            patch("src.cli.run_initial_setup") as mock_setup,
+            patch("tengingarstjori.cli.SSHConfigManager") as mock_cm,
+            patch("tengingarstjori.cli.run_initial_setup") as mock_setup,
         ):
             manager = MagicMock()
             manager.is_initialized.return_value = False
@@ -69,7 +69,7 @@ class TestCLICommandsCoverage:
         """Test config command without updating key."""
         mock_config_manager.get_setting = MagicMock(return_value="~/.ssh/id_rsa")
 
-        with patch("src.cli.Confirm.ask", return_value=False):
+        with patch("tengingarstjori.cli.Confirm.ask", return_value=False):
             result = runner.invoke(config)
 
             assert result.exit_code == 0
@@ -77,7 +77,7 @@ class TestCLICommandsCoverage:
 
     def test_config_command_update_with_available_keys(self, runner):
         """Test config command updating key with available keys."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             manager.get_setting.return_value = "~/.ssh/id_rsa"
             manager.discover_ssh_keys.return_value = [
@@ -88,8 +88,8 @@ class TestCLICommandsCoverage:
             mock_cm.return_value = manager
 
             with (
-                patch("src.cli.Confirm.ask", return_value=True),
-                patch("src.cli.Prompt.ask", return_value="2"),
+                patch("tengingarstjori.cli.Confirm.ask", return_value=True),
+                patch("tengingarstjori.cli.Prompt.ask", return_value="2"),
             ):
                 result = runner.invoke(config)
 
@@ -98,7 +98,7 @@ class TestCLICommandsCoverage:
 
     def test_config_command_update_with_custom_path(self, runner):
         """Test config command updating key with custom path."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             manager.get_setting.return_value = "~/.ssh/id_rsa"
             manager.discover_ssh_keys.return_value = ["~/.ssh/id_rsa"]
@@ -106,8 +106,10 @@ class TestCLICommandsCoverage:
             mock_cm.return_value = manager
 
             with (
-                patch("src.cli.Confirm.ask", return_value=True),
-                patch("src.cli.Prompt.ask", return_value="/custom/key/path"),
+                patch("tengingarstjori.cli.Confirm.ask", return_value=True),
+                patch(
+                    "tengingarstjori.cli.Prompt.ask", return_value="/custom/key/path"
+                ),
             ):
                 result = runner.invoke(config)
 
@@ -118,7 +120,7 @@ class TestCLICommandsCoverage:
 
     def test_config_command_no_available_keys(self, runner):
         """Test config command with no available keys."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             manager.get_setting.return_value = "None"
             manager.discover_ssh_keys.return_value = []
@@ -126,8 +128,8 @@ class TestCLICommandsCoverage:
             mock_cm.return_value = manager
 
             with (
-                patch("src.cli.Confirm.ask", return_value=True),
-                patch("src.cli.Prompt.ask", return_value="/new/key/path"),
+                patch("tengingarstjori.cli.Confirm.ask", return_value=True),
+                patch("tengingarstjori.cli.Prompt.ask", return_value="/new/key/path"),
             ):
                 result = runner.invoke(config)
 
@@ -137,7 +139,7 @@ class TestCLICommandsCoverage:
     def test_fix_config_command_with_existing_config(self, runner):
         """Test fix_config command with existing SSH config."""
         with (
-            patch("src.cli.SSHConfigManager") as mock_cm,
+            patch("tengingarstjori.cli.SSHConfigManager") as mock_cm,
             patch("pathlib.Path.home") as mock_home,
             patch("builtins.open") as mock_open,
             patch("pathlib.Path.exists", return_value=True),
@@ -159,7 +161,7 @@ class TestCLICommandsCoverage:
     def test_fix_config_command_error_handling(self, runner):
         """Test fix_config command error handling."""
         with (
-            patch("src.cli.SSHConfigManager") as mock_cm,
+            patch("tengingarstjori.cli.SSHConfigManager") as mock_cm,
             patch("pathlib.Path.home", side_effect=Exception("Test error")),
         ):
             manager = MagicMock()
@@ -172,7 +174,7 @@ class TestCLICommandsCoverage:
 
     def test_refresh_command_success(self, runner):
         """Test refresh command success."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             mock_cm.return_value = manager
 
@@ -184,7 +186,7 @@ class TestCLICommandsCoverage:
 
     def test_refresh_command_error(self, runner):
         """Test refresh command error handling."""
-        with patch("src.cli.SSHConfigManager") as mock_cm:
+        with patch("tengingarstjori.cli.SSHConfigManager") as mock_cm:
             manager = MagicMock()
             manager._update_ssh_config.side_effect = Exception("Update failed")
             mock_cm.return_value = manager
@@ -202,8 +204,8 @@ class TestCLICommandsCoverage:
         mock_config_manager.get_setting = MagicMock(return_value=None)
 
         with (
-            patch("src.cli.Prompt.ask") as mock_prompt,
-            patch("src.cli.Confirm.ask") as mock_confirm,
+            patch("tengingarstjori.cli.Prompt.ask") as mock_prompt,
+            patch("tengingarstjori.cli.Confirm.ask") as mock_confirm,
         ):
             # Setup prompt responses for interactive mode
             mock_prompt.side_effect = [
@@ -233,8 +235,8 @@ class TestCLICommandsCoverage:
         mock_config_manager.get_setting = MagicMock(return_value="~/.ssh/id_rsa")
 
         with (
-            patch("src.cli.Prompt.ask") as mock_prompt,
-            patch("src.cli.Confirm.ask", return_value=False),
+            patch("tengingarstjori.cli.Prompt.ask") as mock_prompt,
+            patch("tengingarstjori.cli.Confirm.ask", return_value=False),
         ):
             mock_prompt.side_effect = [
                 "key-test",  # name
@@ -257,8 +259,8 @@ class TestCLICommandsCoverage:
         mock_config_manager.get_setting = MagicMock(return_value="~/.ssh/id_rsa")
 
         with (
-            patch("src.cli.Prompt.ask") as mock_prompt,
-            patch("src.cli.Confirm.ask", return_value=False),
+            patch("tengingarstjori.cli.Prompt.ask") as mock_prompt,
+            patch("tengingarstjori.cli.Confirm.ask", return_value=False),
         ):
             mock_prompt.side_effect = [
                 "default-test",  # name
@@ -318,7 +320,7 @@ class TestCLICommandsCoverage:
         conn = SSHConnection(name="test", host="example.com", user="testuser")
         mock_config_manager.add_connection(conn)
 
-        with patch("src.cli.Confirm.ask", return_value=True):
+        with patch("tengingarstjori.cli.Confirm.ask", return_value=True):
             result = runner.invoke(cli, ["remove", "1"])
 
             assert result.exit_code == 0
@@ -329,7 +331,7 @@ class TestCLICommandsCoverage:
         mock_config_manager.add_connection(conn)
         mock_config_manager.remove_connection = MagicMock(return_value=False)
 
-        with patch("src.cli.Confirm.ask", return_value=True):
+        with patch("tengingarstjori.cli.Confirm.ask", return_value=True):
             result = runner.invoke(cli, ["remove", "test"])
 
             assert result.exit_code == 0
@@ -341,9 +343,9 @@ class TestCLIHelperFunctions:
 
     def test_get_required_field_interactive(self, runner):
         """Test _get_required_field helper in interactive mode."""
-        from src.cli import _get_required_field
+        from tengingarstjori.cli import _get_required_field
 
-        with patch("src.cli.Prompt.ask", return_value="test_value"):
+        with patch("tengingarstjori.cli.Prompt.ask", return_value="test_value"):
             result = _get_required_field(
                 "test_field", None, True, "[cyan]Test prompt[/cyan]", "Test error"
             )
@@ -351,7 +353,7 @@ class TestCLIHelperFunctions:
 
     def test_get_required_field_non_interactive_with_value(self, runner):
         """Test _get_required_field helper with existing value."""
-        from src.cli import _get_required_field
+        from tengingarstjori.cli import _get_required_field
 
         result = _get_required_field(
             "test_field",
@@ -364,7 +366,7 @@ class TestCLIHelperFunctions:
 
     def test_get_required_field_non_interactive_missing(self, runner):
         """Test _get_required_field helper missing value in non-interactive."""
-        from src.cli import _get_required_field
+        from tengingarstjori.cli import _get_required_field
 
         result = _get_required_field(
             "test_field", None, False, "[cyan]Test prompt[/cyan]", "Test error"
@@ -373,7 +375,7 @@ class TestCLIHelperFunctions:
 
     def test_handle_ssh_key_selection_with_key(self, runner):
         """Test _handle_ssh_key_selection with existing key."""
-        from src.cli import _handle_ssh_key_selection
+        from tengingarstjori.cli import _handle_ssh_key_selection
 
         mock_manager = MagicMock()
         result = _handle_ssh_key_selection(mock_manager, "/existing/key", True)
@@ -381,7 +383,7 @@ class TestCLIHelperFunctions:
 
     def test_get_advanced_options_with_existing(self, runner):
         """Test _get_advanced_options with existing options."""
-        from src.cli import _get_advanced_options
+        from tengingarstjori.cli import _get_advanced_options
 
         proxy, local, remote = _get_advanced_options(
             True, "existing_proxy", "existing_local", "existing_remote"
@@ -392,9 +394,9 @@ class TestCLIHelperFunctions:
 
     def test_get_advanced_options_declined(self, runner):
         """Test _get_advanced_options when user declines."""
-        from src.cli import _get_advanced_options
+        from tengingarstjori.cli import _get_advanced_options
 
-        with patch("src.cli.Confirm.ask", return_value=False):
+        with patch("tengingarstjori.cli.Confirm.ask", return_value=False):
             proxy, local, remote = _get_advanced_options(True, None, None, None)
             assert proxy is None
             assert local is None
@@ -402,7 +404,7 @@ class TestCLIHelperFunctions:
 
     def test_find_connection_by_ref_helper(self, runner):
         """Test _find_connection_by_ref helper function."""
-        from src.cli import _find_connection_by_ref
+        from tengingarstjori.cli import _find_connection_by_ref
 
         mock_manager = MagicMock()
         mock_connection = MagicMock()

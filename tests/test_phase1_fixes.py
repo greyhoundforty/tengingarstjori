@@ -2,14 +2,14 @@
 
 import pytest
 
-from src.exceptions import (
+from tengingarstjori.exceptions import (
     ConnectionError,
     DuplicateConnectionError,
     SSHConfigError,
     TengingarstjoriError,
     ValidationError,
 )
-from src.models import SSHConnection
+from tengingarstjori.models import SSHConnection
 
 
 def test_exception_hierarchy():
@@ -78,11 +78,11 @@ def test_ssh_connection_config_generation():
 def test_import_statements():
     """Test that all modules can be imported without errors."""
     # Test imports work
-    from src.cli import cli
-    from src.config_manager import SSHConfigManager
-    from src.exceptions import TengingarstjoriError
-    from src.models import SSHConnection
-    from src.setup import SetupWizard, run_initial_setup
+    from tengingarstjori.cli import cli
+    from tengingarstjori.config_manager import SSHConfigManager
+    from tengingarstjori.exceptions import TengingarstjoriError
+    from tengingarstjori.models import SSHConnection
+    from tengingarstjori.setup import SetupWizard, run_initial_setup
 
     # Basic functionality test
     assert SSHConnection is not None
