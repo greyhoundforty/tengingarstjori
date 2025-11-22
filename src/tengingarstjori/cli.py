@@ -641,7 +641,13 @@ def show(connection_ref: str):
 
 @cli.command()
 @click.argument("connection_ref")
-def remove(connection_ref: str):
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Skip confirmation prompt",
+)
+def remove(connection_ref: str, force: bool):
     """Remove an SSH connection."""
     config_manager = SSHConfigManager()
 
@@ -650,7 +656,7 @@ def remove(connection_ref: str):
         return
 
     # Confirm deletion
-    if not Confirm.ask(f"[red]Remove connection '{connection.name}'?[/red]"):
+    if not force and not Confirm.ask(f"[red]Remove connection '{connection.name}'?[/red]"):
         console.print("[yellow]Cancelled[/yellow]")
         return
 
