@@ -32,8 +32,17 @@ echo "Python Path: $PYTHONPATH"
 
 [tasks.setup]
 description = "Set up development environment"
-depends = ["uv:reqs"]
-run = "echo 'Development environment ready!'"
+run = '''
+echo "🚀 Setting up development environment..."
+uv pip install -e ".[dev,test]"
+echo "✅ Development environment ready!"
+echo ""
+echo "📝 You can now:"
+echo "  - Build: mise run build"
+echo "  - Test: mise run test"
+echo "  - Lint: mise run lint"
+echo "  - Publish to TestPyPI: mise run publish:test"
+'''
 
 [tasks."test:unit"]
 description = "Run unit tests only"
@@ -229,7 +238,7 @@ run = "rm -rf .venv/"
 description = "Install build dependencies"
 run = '''
 echo "📦 Installing build dependencies..."
-pip install build twine wheel setuptools
+uv pip install build twine wheel setuptools
 echo "✅ Build dependencies installed"
 '''
 
@@ -390,8 +399,11 @@ echo ""
 echo "✅ Published to Test PyPI!"
 echo "🔗 Check: https://test.pypi.org/project/tengingarstjori/"
 echo ""
-echo "📝 Test installation:"
-echo "  pip install --index-url https://test.pypi.org/simple/ tengingarstjori"
+echo "📝 Test installation (IMPORTANT - use --extra-index-url):"
+echo "  pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tengingarstjori"
+echo ""
+echo "Why --extra-index-url? TestPyPI doesn'\''t have dependencies (textual, pydantic, etc.)"
+echo "This tells pip to fall back to PyPI for missing packages."
 '''
 
 [tasks."publish:prod"]
@@ -446,18 +458,48 @@ fi
 
 # Test PyPI Installation Testing
 [tasks."test:pypi-install"]
-description = "Test installation from Test PyPI using multiple methods"
+description = "Test installation from Test PyPI with correct fallback"
 run = '''
-echo "🧪 Testing Test PyPI installation..."
-chmod +x scripts/test_pypi_installation.sh
-./scripts/test_pypi_installation.sh
+echo "🧪 Testing Test PyPI installation with dependency fallback..."
+echo ""
+echo "Creating temporary test environment..."
+python -m venv temp_test_env
+source temp_test_env/bin/activate
+
+echo "Installing from TestPyPI with PyPI fallback for dependencies..."
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tengingarstjori
+
+echo ""
+echo "Testing import..."
+python -c "import tengingarstjori; print(f'✅ Successfully imported tengingarstjori v{tengingarstjori.__version__}')"
+
+echo ""
+echo "Testing CLI..."
+tg --version
+tg --help > /dev/null && echo "✅ CLI help working"
+
+echo ""
+echo "Cleanup..."
+deactivate
+rm -rf temp_test_env
+
+echo ""
+echo "✅ TestPyPI installation test passed!"
 '''
 
 [tasks."test:docker-install"]
-description = "Quick Docker test of Test PyPI installation"
+description = "Test installation on fresh Ubuntu container"
 run = '''
-echo "🐳 Testing Docker installation from Test PyPI..."
-docker run --rm python:3.11-slim bash -c "pip install --index-url https://test.pypi.org/simple/ tengingarstjori && tg --version && echo 'Docker test passed!'"
+echo "🐳 Testing installation on Ubuntu 24.04..."
+docker run --rm ubuntu:24.04 bash -c "
+apt-get update -qq &&
+apt-get install -y -qq python3 python3-pip python3-venv > /dev/null &&
+python3 -m venv /tmp/venv &&
+. /tmp/venv/bin/activate &&
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tengingarstjori &&
+tg --version &&
+echo '\''✅ Ubuntu installation test passed!'\''
+" || echo "❌ Ubuntu test failed"
 '''
 
 [tasks."test:local-install"]
@@ -466,7 +508,8 @@ run = '''
 echo "🌐 Testing local venv installation from Test PyPI..."
 python -m venv test-pypi-local
 source test-pypi-local/bin/activate
-pip install --index-url https://test.pypi.org/simple/ tengingarstjori
+echo "Installing with PyPI fallback for dependencies..."
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tengingarstjori
 python -c "import tengingarstjori; print(f'Success! Version: {tengingarstjori.__version__}')"
 tg --version
 deactivate

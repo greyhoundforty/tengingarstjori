@@ -10,6 +10,13 @@
 pip install tengingarstjori
 ```
 
+**Ubuntu 23.04+ Users:** See [UBUNTU_INSTALL.md](UBUNTU_INSTALL.md) for handling "externally managed environment" restrictions. We recommend using `pipx`:
+
+```bash
+sudo apt install pipx
+pipx install tengingarstjori
+```
+
 ### From Source
 
 ```bash
@@ -350,7 +357,8 @@ tg refresh
 ## Additional Resources
 
 - **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Comprehensive usage guide
-- **[PYPI_PUBLISHING_GUIDE.md](PYPI_PUBLISHING_GUIDE.md)** - Guide for maintainers
+- **[UBUNTU_INSTALL.md](UBUNTU_INSTALL.md)** - Ubuntu installation guide (handling "externally managed" environments)
+- **[PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md)** - PyPI publishing guide for maintainers
 - **[CHANGELOG.md](CHANGELOG.md)** - Detailed change history
 
 ## Development Commands
