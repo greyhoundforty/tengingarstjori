@@ -69,3 +69,55 @@ To complete PyPI setup:
 - Package successfully builds: ✅
 - Twine validation passes: ✅
 - Ready for PyPI publishing: ✅
+
+---
+
+## 2025-11-22 - GitHub Actions Integration and Debugging
+
+### Changes Made
+
+1. **Fixed GitHub Actions Workflow Triggers** (`.github/workflows/publish.yml`)
+   - Added `push: tags:` trigger to enable TestPyPI publishing on tag push
+   - Added condition `if: github.event_name == 'release'` to `publish` job
+   - Now properly separates:
+     - Tag push → TestPyPI (for testing)
+     - Release → PyPI (for production)
+
+2. **Added GitHub Actions mise Tasks** (`.mise.toml`)
+   - `gh:status` - Check workflow status and recent runs
+   - `gh:logs` - View logs from latest workflow run
+   - `gh:watch` - Watch latest workflow run in real-time
+   - `gh:releases` - List GitHub releases
+   - `gh:tags` - List git tags and show creation commands
+   - `gh:create-release` - Interactive release creation
+   - Updated help task to include new GitHub Actions section
+
+### Issue Diagnosed
+
+**Problem:** Workflow wasn't triggering when pushing tags
+
+**Root Cause:** The workflow only had `release:` as a trigger event, but didn't listen for tag pushes. The `test-pypi` job had the right condition but the workflow never started.
+
+**Solution:** Added `push: tags: ['v*']` trigger to the workflow
+
+### Workflow Behavior (After Fix)
+
+**For TestPyPI:**
+```bash
+git tag v0.1.3-test
+git push origin v0.1.3-test
+# → Triggers test-pypi job → Publishes to TestPyPI
+```
+
+**For Production PyPI:**
+```bash
+gh release create v0.1.3 --generate-notes
+# or use: mise run gh:create-release
+# → Triggers publish job → Publishes to PyPI
+```
+
+### Files Modified
+
+- `.github/workflows/publish.yml` - Fixed workflow triggers
+- `.mise.toml` - Added 6 new GitHub Actions tasks
+- Updated help output with GitHub Actions section

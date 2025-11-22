@@ -138,8 +138,11 @@ The workflow is defined in `.github/workflows/publish.yml` and has two jobs:
 4. Add release notes describing changes
 5. Click "Publish release"
 
-# Method 2: Via GitHub CLI (if installed)
-gh release create v0.1.3 --title "v0.1.3" --notes "Release notes here"
+# Method 2: Via GitHub CLI (recommended)
+gh release create v0.1.3 --generate-notes
+
+# Method 3: Via mise (interactive)
+mise run gh:create-release
 ```
 
 #### To TestPyPI
@@ -150,6 +153,12 @@ git tag v0.1.3-test
 git push origin v0.1.3-test
 
 # This triggers the test-pypi job
+
+# Check workflow status
+mise run gh:status
+
+# Watch the workflow run
+mise run gh:watch
 ```
 
 ### Workflow Features
@@ -432,9 +441,21 @@ unzip -l dist/tengingarstjori-*.whl | less
 1. Verify the workflow file is in `.github/workflows/`
 2. Check the trigger conditions match your action:
    - `publish` job: Requires a GitHub **Release** (not just a tag)
-   - `test-pypi` job: Requires pushing a **tag**
+   - `test-pypi` job: Requires pushing a **tag** (workflow must have `push: tags:` trigger)
 3. Check GitHub Actions tab for errors
 4. Verify repository permissions allow Actions
+
+**Check workflow status:**
+```bash
+# See all workflows and recent runs
+mise run gh:status
+
+# View logs from latest run
+mise run gh:logs
+
+# Watch a running workflow
+mise run gh:watch
+```
 
 ### Issue: Tests pass locally but fail in GitHub Actions
 
@@ -506,6 +527,31 @@ pip install -e .[dev,test]
 
 ## Quick Reference
 
+### mise Commands (Recommended)
+
+```bash
+# Build
+mise run build
+
+# Publish to TestPyPI
+mise run publish:test
+
+# Publish to PyPI (production)
+mise run publish:prod
+
+# Check GitHub Actions status
+mise run gh:status
+
+# Watch workflow run
+mise run gh:watch
+
+# Create GitHub release
+mise run gh:create-release
+
+# List tags
+mise run gh:tags
+```
+
 ### Build Commands
 
 ```bash
@@ -551,6 +597,28 @@ git push origin v0.1.3
 # Delete tag (if needed)
 git tag -d v0.1.3
 git push origin :refs/tags/v0.1.3
+
+# Create release with gh CLI
+gh release create v0.1.3 --generate-notes
+```
+
+### GitHub Actions Commands
+
+```bash
+# List workflows
+gh workflow list
+
+# List recent runs
+gh run list --limit 10
+
+# View specific workflow runs
+gh run list --workflow="Publish to PyPI"
+
+# View run logs
+gh run view <run-id> --log
+
+# Watch a run
+gh run watch <run-id>
 ```
 
 ---

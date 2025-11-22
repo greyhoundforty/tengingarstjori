@@ -645,6 +645,99 @@ echo "   mise run build       # Build package"
 echo "   mise run publish:test # Test publish to PyPI"
 '''
 
+# GitHub Actions Tasks
+[tasks."gh:status"]
+description = "Check GitHub Actions workflow status"
+run = '''
+echo "📊 GitHub Actions Status"
+echo "======================="
+echo ""
+echo "Workflows:"
+gh workflow list
+echo ""
+echo "Recent runs:"
+gh run list --limit 5
+echo ""
+echo "Latest Publish workflow runs:"
+gh run list --workflow="Publish to PyPI" --limit 3
+'''
+
+[tasks."gh:logs"]
+description = "Show logs from latest workflow run"
+run = '''
+echo "📋 Latest workflow run logs:"
+echo ""
+RUN_ID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+if [ -n "$RUN_ID" ]; then
+    gh run view $RUN_ID --log
+else
+    echo "No workflow runs found"
+fi
+'''
+
+[tasks."gh:watch"]
+description = "Watch latest workflow run"
+run = '''
+echo "👀 Watching latest workflow run..."
+RUN_ID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+if [ -n "$RUN_ID" ]; then
+    gh run watch $RUN_ID
+else
+    echo "No workflow runs found"
+fi
+'''
+
+[tasks."gh:releases"]
+description = "List GitHub releases"
+run = '''
+echo "📦 GitHub Releases"
+echo "=================="
+echo ""
+gh release list --limit 10
+echo ""
+echo "To create a release:"
+echo "  gh release create v0.1.3 --generate-notes"
+'''
+
+[tasks."gh:tags"]
+description = "List git tags and show how to create them"
+run = '''
+echo "🏷️  Git Tags"
+echo "=========="
+echo ""
+echo "Existing tags:"
+git tag -l | tail -10
+echo ""
+echo "Create a new tag:"
+echo "  git tag v0.1.3"
+echo "  git push origin v0.1.3"
+echo ""
+echo "This will trigger the TestPyPI publish workflow"
+'''
+
+[tasks."gh:create-release"]
+description = "Create a new GitHub release (interactive)"
+run = '''
+echo "📦 Create GitHub Release"
+echo "========================"
+echo ""
+echo "Current version from pyproject.toml:"
+grep "version =" pyproject.toml
+echo ""
+read -p "Enter version tag (e.g., v0.1.3): " VERSION
+echo ""
+echo "Creating release $VERSION..."
+gh release create $VERSION --generate-notes --draft
+echo ""
+echo "✅ Draft release created!"
+echo "🔗 View and publish at: https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/releases"
+echo ""
+echo "To publish the draft and trigger PyPI upload:"
+echo "  1. Go to the releases page"
+echo "  2. Edit the draft release"
+echo "  3. Click '\''Publish release'\''"
+'''
+
 # Help task
 [tasks.help]
 description = "Show available tasks organized by category"
@@ -689,6 +782,14 @@ echo ""
 echo "🧹 MAINTENANCE"
 echo "  clean           - Clean build artifacts"
 echo "  clean:full      - Full clean including venv"
+echo ""
+echo "🐙 GITHUB ACTIONS"
+echo "  gh:status       - Check workflow status"
+echo "  gh:logs         - Show latest workflow logs"
+echo "  gh:watch        - Watch latest workflow run"
+echo "  gh:releases     - List GitHub releases"
+echo "  gh:tags         - List git tags"
+echo "  gh:create-release - Create new GitHub release"
 echo ""
 echo "Run any task with: mise run <task-name>"
 '''
