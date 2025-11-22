@@ -656,7 +656,9 @@ def remove(connection_ref: str, force: bool):
         return
 
     # Confirm deletion
-    if not force and not Confirm.ask(f"[red]Remove connection '{connection.name}'?[/red]"):
+    if not force and not Confirm.ask(
+        f"[red]Remove connection '{connection.name}'?[/red]"
+    ):
         console.print("[yellow]Cancelled[/yellow]")
         return
 
