@@ -2,9 +2,9 @@ name: Test and Build
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -15,111 +15,108 @@ jobs:
         include:
           # macOS tests first (all Python versions)
           - os: macos-latest
-            python-version: '3.10'
+            python-version: "3.11"
           - os: macos-latest
-            python-version: '3.11'
-          - os: macos-latest
-            python-version: '3.12'
-          # Ubuntu tests second (descending order: 3.12, 3.11, 3.10)
+            python-version: "3.12"
+          # Ubuntu tests second (descending order: 3.12, 3.11)
           - os: ubuntu-latest
-            python-version: '3.12'
+            python-version: "3.12"
           - os: ubuntu-latest
-            python-version: '3.11'
+            python-version: "3.11"
           # - os: ubuntu-latest
           #   python-version: '3.10'
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: 'pyproject.toml'
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
-        pip install -e .[dev,test]
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+          pip install -e .[dev,test]
 
-    - name: Run code quality checks
-      run: |
-        # Format check
-        python -m black --check src tests
+      - name: Run code quality checks
+        run: |
+          # Format check
+          python -m black --check src tests
 
-        # Lint check
-        python -m flake8 src tests
+          # Lint check
+          python -m flake8 src tests
 
-        # Type check
-#        python -m mypy src
+          # Type check
+      #        python -m mypy src
+      - name: Run tests
+        run: |
+          python -m pytest --cov=src/tengingarstjori --cov-report=xml --cov-report=term -v
 
-    - name: Run tests
-      run: |
-        python -m pytest --cov=src/tengingarstjori --cov-report=xml --cov-report=term -v
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
-    - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        token: ${{ secrets.CODECOV_TOKEN }}
-        fail_ci_if_error: false
+      - name: Test package build
+        run: |
+          python -m build
+          python -m twine check dist/*
 
-    - name: Test package build
-      run: |
-        python -m build
-        python -m twine check dist/*
-
-    - name: Test package installation
-      run: |
-        pip install dist/*.whl
-        python -c "import tengingarstjori; print('Import successful')"
-        tg --help
+      - name: Test package installation
+        run: |
+          pip install dist/*.whl
+          python -c "import tengingarstjori; print('Import successful')"
+          tg --help
 
   security:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-        cache-dependency-path: 'pyproject.toml'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install safety bandit
-        pip install -e .[dev]
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety bandit
+          pip install -e .[dev]
 
-    - name: Run security checks
-      run: |
-        # Check for known security vulnerabilities in dependencies
-        echo "🔍 Scanning dependencies for security vulnerabilities..."
-        safety scan --json --output safety-report.json || echo "⚠️ Safety scan found vulnerabilities"
+      - name: Run security checks
+        run: |
+          # Check for known security vulnerabilities in dependencies
+          echo "🔍 Scanning dependencies for security vulnerabilities..."
+          safety scan --json --output safety-report.json || echo "⚠️ Safety scan found vulnerabilities"
 
-        # Display safety results in readable format
-        safety scan || echo "⚠️ Safety scan completed with findings"
+          # Display safety results in readable format
+          safety scan || echo "⚠️ Safety scan completed with findings"
 
-        # Static security analysis of source code
-        echo "🔍 Running static security analysis..."
-        bandit -r src/tengingarstjori/ -f json -o bandit-report.json || echo "⚠️ Bandit found security issues"
+          # Static security analysis of source code
+          echo "🔍 Running static security analysis..."
+          bandit -r src/tengingarstjori/ -f json -o bandit-report.json || echo "⚠️ Bandit found security issues"
 
-        # Show bandit results in readable format
-        bandit -r src/tengingarstjori/ -ll || echo "⚠️ Bandit scan completed with findings"
+          # Show bandit results in readable format
+          bandit -r src/tengingarstjori/ -ll || echo "⚠️ Bandit scan completed with findings"
 
-    - name: Upload security scan results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-reports
-        path: |
-          safety-report.json
-          bandit-report.json
-        retention-days: 30
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            safety-report.json
+            bandit-report.json
+          retention-days: 30
