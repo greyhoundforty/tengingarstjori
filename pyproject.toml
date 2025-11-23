@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tengingarstjori"
-version = "0.1.5"
+version = "0.1.6"
 description = "SSH Connection Manager with TUI interface"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -74,11 +74,11 @@ docs = [
 tg = "tengingarstjori.cli:cli"
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/tengingarstjori"
-"Bug Reports" = "https://github.com/yourusername/tengingarstjori/issues"
-"Source" = "https://github.com/yourusername/tengingarstjori"
-"Documentation" = "https://github.com/yourusername/tengingarstjori#readme"
-"Changelog" = "https://github.com/yourusername/tengingarstjori/blob/main/CHANGELOG.md"
+"Homepage" = "https://github.com/greyhoundforty/tengingarstjori"
+"Bug Reports" = "https://github.com/greyhoundforty/tengingarstjori/issues"
+"Source" = "https://github.com/greyhoundforty/tengingarstjori"
+"Documentation" = "https://github.com/greyhoundforty/tengingarstjori#readme"
+"Changelog" = "https://github.com/greyhoundforty/tengingarstjori/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
