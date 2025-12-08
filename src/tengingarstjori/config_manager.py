@@ -34,7 +34,7 @@ class SSHConfigManager:
 
         self._load_data()
 
-    def _load_data(self):
+    def _load_data(self) -> None:
         """Load connections and settings from disk."""
         # Load connections
         if self.connections_file.exists():
@@ -55,7 +55,7 @@ class SSHConfigManager:
                 print(f"Error loading settings: {e}")
                 self.settings = {}
 
-    def _save_connections(self):
+    def _save_connections(self) -> None:
         """Save connections to disk."""
         try:
             with open(self.connections_file, "w") as f:
@@ -68,7 +68,7 @@ class SSHConfigManager:
         except Exception as e:
             print(f"Error saving connections: {e}")
 
-    def _save_settings(self):
+    def _save_settings(self) -> None:
         """Save settings to disk."""
         try:
             with open(self.settings_file, "w") as f:
@@ -76,7 +76,7 @@ class SSHConfigManager:
         except Exception as e:
             print(f"Error saving settings: {e}")
 
-    def _update_ssh_config(self):
+    def _update_ssh_config(self) -> None:
         """Update the managed SSH config file and ensure inclusion."""
         try:
             # Write managed config
@@ -95,7 +95,7 @@ class SSHConfigManager:
         except Exception as e:
             print(f"Error updating SSH config: {e}")
 
-    def _ensure_include_line(self):
+    def _ensure_include_line(self) -> None:
         """Ensure the Include line exists in the main SSH config."""
         include_line = f"Include {self.managed_config}"
 
@@ -219,7 +219,7 @@ class SSHConfigManager:
         """Get all connections."""
         return self.connections.copy()
 
-    def update_setting(self, key: str, value: Any):
+    def update_setting(self, key: str, value: Any) -> None:
         """Update a setting."""
         self.settings[key] = value
         self._save_settings()
@@ -230,9 +230,10 @@ class SSHConfigManager:
 
     def is_initialized(self) -> bool:
         """Check if the system has been initialized."""
-        return self.get_setting("initialized", False)
+        result = self.get_setting("initialized", False)
+        return bool(result) if isinstance(result, bool) else False
 
-    def mark_initialized(self):
+    def mark_initialized(self) -> None:
         """Mark the system as initialized."""
         self.update_setting("initialized", True)
         self.update_setting("initialized_at", datetime.now().isoformat())

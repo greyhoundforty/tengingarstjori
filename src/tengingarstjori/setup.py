@@ -6,13 +6,16 @@ error management, and improved user experience.
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 
 from .exceptions import SetupError
+
+if TYPE_CHECKING:
+    from .config_manager import SSHConfigManager
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -26,7 +29,7 @@ class SetupWizard:
     and maintain compared to the original function-based approach.
     """
 
-    def __init__(self, config_manager):
+    def __init__(self, config_manager: "SSHConfigManager") -> None:
         """Initialize the setup wizard with a config manager instance."""
         self.config_manager = config_manager
         self.ssh_dir = Path.home() / ".ssh"
@@ -253,7 +256,7 @@ class SetupWizard:
         )
 
 
-def run_initial_setup(config_manager) -> bool:
+def run_initial_setup(config_manager: "SSHConfigManager") -> bool:
     """
     Legacy function wrapper for backward compatibility.
 

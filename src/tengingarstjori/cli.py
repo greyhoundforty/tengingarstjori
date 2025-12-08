@@ -7,6 +7,7 @@ import json
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import click
 from rich.console import Console
@@ -23,7 +24,7 @@ console = Console()
 
 @click.group()
 @click.version_option(version="0.1.0")
-def cli():
+def cli() -> None:
     """Tengingarstjóri - SSH Connection Manager.
 
     A TUI-based SSH connection manager with smart config integration.
@@ -32,7 +33,7 @@ def cli():
 
 
 @cli.command()
-def init():
+def init() -> None:
     """Initialize Tengingarstjóri and set up SSH config integration."""
     console.print(
         Panel("🔧 [bold blue]Tengingarstjóri Setup[/bold blue]", style="blue")
@@ -86,8 +87,8 @@ def init():
 
 
 def _get_required_field(
-    field_name: str, value: str, interactive: bool, prompt_text: str, error_msg: str
-):
+    field_name: str, value: Optional[str], interactive: bool, prompt_text: str, error_msg: str
+) -> Optional[str]:
     """Get required fields for connection."""
     if not value:
         if interactive:
@@ -98,7 +99,7 @@ def _get_required_field(
     return value
 
 
-def _handle_ssh_key_selection(config_manager, key: str, interactive: bool):
+def _handle_ssh_key_selection(config_manager: SSHConfigManager, key: Optional[str], interactive: bool) -> Optional[str]:
     """Handle SSH key selection logic."""
     if key:
         return key
@@ -118,13 +119,13 @@ def _handle_ssh_key_selection(config_manager, key: str, interactive: bool):
         )
 
         if key_choice == "default" and default_key:
-            return default_key
+            return str(default_key)
         elif key_choice.isdigit() and 1 <= int(key_choice) <= len(available_keys):
             return available_keys[int(key_choice) - 1]
         elif key_choice:
             return key_choice
     elif not interactive and default_key:
-        return default_key
+        return str(default_key)
     elif interactive:
         user_key = Prompt.ask("[cyan]SSH key path (optional)[/cyan]", default="")
         return user_key if user_key else None
@@ -133,8 +134,8 @@ def _handle_ssh_key_selection(config_manager, key: str, interactive: bool):
 
 
 def _get_advanced_options(
-    interactive: bool, proxy_jump: str, local_forward: str, remote_forward: str
-):
+    interactive: bool, proxy_jump: Optional[str], local_forward: Optional[str], remote_forward: Optional[str]
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Get advanced SSH options if in interactive mode."""
     if not interactive or any([proxy_jump, local_forward, remote_forward]):
         return proxy_jump, local_forward, remote_forward
@@ -178,18 +179,18 @@ def _get_advanced_options(
     help="Use non-interactive mode (requires all options via flags)",
 )
 def add(
-    name,
-    host,
-    user,
-    port,
-    hostname,
-    key,
-    proxy_jump,
-    local_forward,
-    remote_forward,
-    notes,
-    non_interactive,
-):
+    name: Optional[str],
+    host: Optional[str],
+    user: Optional[str],
+    port: Optional[int],
+    hostname: Optional[str],
+    key: Optional[str],
+    proxy_jump: Optional[str],
+    local_forward: Optional[str],
+    remote_forward: Optional[str],
+    notes: Optional[str],
+    non_interactive: bool,
+) -> None:
     """Add a new SSH connection.
 
     Examples:
@@ -296,7 +297,7 @@ def add(
         notes = Prompt.ask("[cyan]Notes (optional)[/cyan]", default="")
 
     # Clean up empty strings to None
-    def clean_option(value):
+    def clean_option(value: Optional[str]) -> Optional[str]:
         return value if value and value.strip() else None
 
     # Create connection with validation
@@ -312,6 +313,7 @@ def add(
             local_forward=clean_option(local_forward),
             remote_forward=clean_option(remote_forward),
             notes=clean_option(notes),
+            last_used=None,
         )
     except ValueError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
@@ -344,7 +346,7 @@ def add(
     default="table",
     help="Output format: table (default), compact, or json",
 )
-def list(detailed, format):
+def list(detailed: bool, format: str) -> None:
     r"""List all SSH connections.
 
     \b
@@ -381,7 +383,7 @@ def list(detailed, format):
         console.print(f"\n[dim]Total: {len(connections)} connections[/dim]")
 
 
-def _display_connections_table(connections, detailed=False):
+def _display_connections_table(connections: List[SSHConnection], detailed: bool = False) -> None:
     """Display connections in table format."""
     if detailed:
         # Detailed table with all information
@@ -471,7 +473,7 @@ def _display_connections_table(connections, detailed=False):
     console.print(table)
 
 
-def _display_connections_compact(connections, detailed=False):
+def _display_connections_compact(connections: List[SSHConnection], detailed: bool = False) -> None:
     """Display connections in compact format."""
     console.print("[bold]SSH Connections:[/bold]\n")
 
@@ -518,10 +520,10 @@ def _display_connections_compact(connections, detailed=False):
         console.print()  # Empty line between connections
 
 
-def _display_connections_json(connections, detailed=False):
+def _display_connections_json(connections: List[SSHConnection], detailed: bool = False) -> None:
     """Display connections in JSON format."""
 
-    def _serialize_connection(conn):
+    def _serialize_connection(conn: SSHConnection) -> Dict[str, Any]:
         """Convert SSHConnection object to JSON-serializable dictionary."""
         # Base connection data that's always included
         data = {
@@ -569,7 +571,7 @@ def _display_connections_json(connections, detailed=False):
     print(json.dumps(json_data, indent=2, ensure_ascii=False))
 
 
-def _find_connection_by_ref(config_manager, connection_ref: str):
+def _find_connection_by_ref(config_manager: SSHConfigManager, connection_ref: str) -> Optional[SSHConnection]:
     """Find connection by reference (number or name)."""
     if connection_ref.isdigit():
         connections = config_manager.list_connections()
@@ -589,7 +591,7 @@ def _find_connection_by_ref(config_manager, connection_ref: str):
 
 @cli.command()
 @click.argument("connection_ref")
-def show(connection_ref: str):
+def show(connection_ref: str) -> None:
     """Show detailed information about a connection."""
     config_manager = SSHConfigManager()
 
@@ -647,7 +649,7 @@ def show(connection_ref: str):
     is_flag=True,
     help="Skip confirmation prompt",
 )
-def remove(connection_ref: str, force: bool):
+def remove(connection_ref: str, force: bool) -> None:
     """Remove an SSH connection."""
     config_manager = SSHConfigManager()
 
@@ -669,7 +671,7 @@ def remove(connection_ref: str, force: bool):
 
 
 @cli.command()
-def config():
+def config() -> None:
     """Configure Tengingarstjóri settings."""
     config_manager = SSHConfigManager()
 
@@ -720,7 +722,7 @@ def config():
 
 
 @cli.command()
-def fix_config():
+def fix_config() -> None:
     """Fix corrupted SSH configuration."""
     config_manager = SSHConfigManager()
 
@@ -796,7 +798,7 @@ def fix_config():
 
 
 @cli.command()
-def refresh():
+def refresh() -> None:
     """Regenerate SSH configuration file."""
     config_manager = SSHConfigManager()
 
@@ -811,7 +813,7 @@ def refresh():
 
 
 @cli.command()
-def validate():
+def validate() -> None:
     """Validate SSH configuration syntax for all connections."""
     config_manager = SSHConfigManager()
     connections = config_manager.list_connections()
@@ -869,7 +871,7 @@ def validate():
 
 
 @cli.command()
-def fix_forwards():
+def fix_forwards() -> None:
     """Fix LocalForward and RemoteForward syntax in existing connections."""
     config_manager = SSHConfigManager()
     connections = config_manager.list_connections()
@@ -904,7 +906,7 @@ def fix_forwards():
                 fixed_connection = SSHConnection.model_validate(fixed_data)
 
                 # Update the connection in the database
-                if config_manager.update_connection(connection.id, fixed_connection):
+                if config_manager.update_connection(fixed_connection):
                     console.print(f"[green]✓[/green] Fixed {connection.name}")
                     if original_local != fixed_connection.local_forward:
                         console.print(
@@ -932,7 +934,7 @@ def fix_forwards():
 
 
 @cli.command()
-def reset():
+def reset() -> None:
     """Reset SSH configuration to the original state before Tengingarstjóri was installed."""
     config_manager = SSHConfigManager()
 
