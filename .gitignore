@@ -216,3 +216,4 @@ test_results.log
 lint_results.log
 *_results.log
 src/cli.py.backup_before_flake8_fix
+test_install_env/

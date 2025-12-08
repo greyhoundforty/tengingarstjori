@@ -87,7 +87,11 @@ def init() -> None:
 
 
 def _get_required_field(
-    field_name: str, value: Optional[str], interactive: bool, prompt_text: str, error_msg: str
+    field_name: str,
+    value: Optional[str],
+    interactive: bool,
+    prompt_text: str,
+    error_msg: str,
 ) -> Optional[str]:
     """Get required fields for connection."""
     if not value:
@@ -99,7 +103,9 @@ def _get_required_field(
     return value
 
 
-def _handle_ssh_key_selection(config_manager: SSHConfigManager, key: Optional[str], interactive: bool) -> Optional[str]:
+def _handle_ssh_key_selection(
+    config_manager: SSHConfigManager, key: Optional[str], interactive: bool
+) -> Optional[str]:
     """Handle SSH key selection logic."""
     if key:
         return key
@@ -134,7 +140,10 @@ def _handle_ssh_key_selection(config_manager: SSHConfigManager, key: Optional[st
 
 
 def _get_advanced_options(
-    interactive: bool, proxy_jump: Optional[str], local_forward: Optional[str], remote_forward: Optional[str]
+    interactive: bool,
+    proxy_jump: Optional[str],
+    local_forward: Optional[str],
+    remote_forward: Optional[str],
 ) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Get advanced SSH options if in interactive mode."""
     if not interactive or any([proxy_jump, local_forward, remote_forward]):
@@ -383,7 +392,9 @@ def list(detailed: bool, format: str) -> None:
         console.print(f"\n[dim]Total: {len(connections)} connections[/dim]")
 
 
-def _display_connections_table(connections: List[SSHConnection], detailed: bool = False) -> None:
+def _display_connections_table(
+    connections: List[SSHConnection], detailed: bool = False
+) -> None:
     """Display connections in table format."""
     if detailed:
         # Detailed table with all information
@@ -473,7 +484,9 @@ def _display_connections_table(connections: List[SSHConnection], detailed: bool 
     console.print(table)
 
 
-def _display_connections_compact(connections: List[SSHConnection], detailed: bool = False) -> None:
+def _display_connections_compact(
+    connections: List[SSHConnection], detailed: bool = False
+) -> None:
     """Display connections in compact format."""
     console.print("[bold]SSH Connections:[/bold]\n")
 
@@ -520,7 +533,9 @@ def _display_connections_compact(connections: List[SSHConnection], detailed: boo
         console.print()  # Empty line between connections
 
 
-def _display_connections_json(connections: List[SSHConnection], detailed: bool = False) -> None:
+def _display_connections_json(
+    connections: List[SSHConnection], detailed: bool = False
+) -> None:
     """Display connections in JSON format."""
 
     def _serialize_connection(conn: SSHConnection) -> Dict[str, Any]:
@@ -571,7 +586,9 @@ def _display_connections_json(connections: List[SSHConnection], detailed: bool =
     print(json.dumps(json_data, indent=2, ensure_ascii=False))
 
 
-def _find_connection_by_ref(config_manager: SSHConfigManager, connection_ref: str) -> Optional[SSHConnection]:
+def _find_connection_by_ref(
+    config_manager: SSHConfigManager, connection_ref: str
+) -> Optional[SSHConnection]:
     """Find connection by reference (number or name)."""
     if connection_ref.isdigit():
         connections = config_manager.list_connections()
