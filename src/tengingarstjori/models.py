@@ -37,6 +37,14 @@ class SSHConnection(BaseModel):
     last_used: Optional[datetime] = Field(None, description="Last connection time")
     use_count: int = Field(default=0, description="Number of times connected")
 
+    @field_validator("port")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        """Validate SSH port is in valid range."""
+        if not isinstance(v, int) or v < 1 or v > 65535:
+            raise ValueError("Port must be between 1 and 65535")
+        return v
+
     @field_validator("local_forward")
     @classmethod
     def validate_local_forward(cls, v: Optional[str]) -> Optional[str]:
@@ -297,7 +305,7 @@ class SSHConnection(BaseModel):
 
         return "\n".join(lines) + "\n"
 
-    def update_usage(self):
+    def update_usage(self) -> None:
         """Update usage statistics when connection is used."""
         self.last_used = datetime.now()
         self.use_count += 1

@@ -1,123 +1,111 @@
-# Project Development Log
+# CLAUDE.md
 
-This file tracks major code and function changes made to the project.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 2025-11-22 - PyPI Publishing Setup and Configuration
+## Project Overview
 
-### Changes Made
+Tengingarstjóri is an SSH Connection Manager written in Python that provides a CLI tool (`tg`) for managing SSH connections through a TUI interface. It integrates non-invasively with existing SSH configurations by creating a separate managed config file (`~/.ssh/config.tengingarstjori`) and including it in the main SSH config.
 
-1. **Enabled PyPI GitHub Actions Workflow** (`.github/workflows/publish.yml`)
-   - Uncommented the `publish` job to enable automated PyPI publishing
-   - Workflow now triggers on GitHub Releases
-   - Includes full test suite, code quality checks, and automatic PyPI upload
-   - Requires `PYPI_API_TOKEN` to be set in GitHub repository secrets
+## Key Architecture
 
-2. **Created Comprehensive Publishing Guide** (`PUBLISHING_GUIDE.md`)
-   - Documented TestPyPI installation issue and solution
-   - Provided complete manual publishing workflow
-   - Explained automated GitHub Actions publishing process
-   - Included version management best practices
-   - Added troubleshooting section for common issues
-   - Created quick reference for build, upload, and install commands
+### Core Components
+- **src/models.py**: Pydantic-based `SSHConnection` model with support for ProxyJump, port forwarding, and SSH options
+- **src/config_manager.py**: `SSHConfigManager` handles SSH config file integration and JSON persistence
+- **src/cli.py**: Click-based CLI with Rich formatting for the `tg` command
+- **src/setup.py**: Initial setup wizard for SSH integration
 
-3. **Fixed Build Dependencies and mise Tasks** (`.mise.toml`)
-   - Updated `setup` task to properly install dev dependencies with uv
-   - Fixed all TestPyPI installation commands to include `--extra-index-url https://pypi.org/simple/`
-   - Updated `build:deps` to use uv instead of pip
-   - Added proper Ubuntu Docker testing task
-   - Enhanced TestPyPI testing tasks with dependency fallback
+### Configuration Management
+- **Non-invasive SSH integration**: Creates `~/.ssh/config.tengingarstjori` and adds `Include` line to main config
+- **Connection persistence**: Stores connections in `~/.tengingarstjori/connections.json`
+- **Settings management**: App settings in `~/.tengingarstjori/settings.json`
+- **SSH key discovery**: Automatically discovers SSH keys in `~/.ssh/`
 
-4. **Created Ubuntu Installation Guide** (`UBUNTU_INSTALL.md`)
-   - Comprehensive guide for Ubuntu "externally managed environment" issue
-   - Documented three recommended installation methods (pipx, venv, user install)
-   - Included TestPyPI installation with correct fallback syntax
-   - Added building from source instructions
-   - Extensive troubleshooting section
-   - Docker testing examples
+## Development Commands
 
-### Key Insights
-
-**TestPyPI Dependency Issue:**
-- TestPyPI doesn't contain project dependencies (textual, pydantic, rich, click)
-- Solution: Use `--extra-index-url https://pypi.org/simple/` when installing from TestPyPI
-- This allows pip to fall back to PyPI for missing dependencies
-
-**Publishing Workflow:**
-- **For Production (PyPI):** Create a GitHub Release → Automatically publishes via Actions
-- **For Testing (TestPyPI):** Push a git tag → Automatically publishes via Actions
-- Manual publishing supported via `python3 -m twine upload dist/*`
-
-### Files Modified
-
-- `.github/workflows/publish.yml` - Enabled automated PyPI publishing
-- `PUBLISHING_GUIDE.md` - Created comprehensive publishing documentation
-- `UBUNTU_INSTALL.md` - Created Ubuntu installation guide with externally-managed workarounds
-- `.mise.toml` - Fixed build dependencies and TestPyPI installation commands
-- Installed dev dependencies in venv: `uv pip install -e ".[dev,test]"`
-
-### Next Steps
-
-To complete PyPI setup:
-1. Add `PYPI_API_TOKEN` to GitHub repository secrets
-2. Update version in `pyproject.toml` when ready for next release
-3. Create GitHub Release to trigger automated publishing
-4. Update README.md to reference the new publishing guide
-
-### Package Status
-
-- Current version: 0.1.2
-- Package successfully builds: ✅
-- Twine validation passes: ✅
-- Ready for PyPI publishing: ✅
-
----
-
-## 2025-11-22 - GitHub Actions Integration and Debugging
-
-### Changes Made
-
-1. **Fixed GitHub Actions Workflow Triggers** (`.github/workflows/publish.yml`)
-   - Added `push: tags:` trigger to enable TestPyPI publishing on tag push
-   - Added condition `if: github.event_name == 'release'` to `publish` job
-   - Now properly separates:
-     - Tag push → TestPyPI (for testing)
-     - Release → PyPI (for production)
-
-2. **Added GitHub Actions mise Tasks** (`.mise.toml`)
-   - `gh:status` - Check workflow status and recent runs
-   - `gh:logs` - View logs from latest workflow run
-   - `gh:watch` - Watch latest workflow run in real-time
-   - `gh:releases` - List GitHub releases
-   - `gh:tags` - List git tags and show creation commands
-   - `gh:create-release` - Interactive release creation
-   - Updated help task to include new GitHub Actions section
-
-### Issue Diagnosed
-
-**Problem:** Workflow wasn't triggering when pushing tags
-
-**Root Cause:** The workflow only had `release:` as a trigger event, but didn't listen for tag pushes. The `test-pypi` job had the right condition but the workflow never started.
-
-**Solution:** Added `push: tags: ['v*']` trigger to the workflow
-
-### Workflow Behavior (After Fix)
-
-**For TestPyPI:**
+### Setup and Installation
 ```bash
-git tag v0.1.3-test
-git push origin v0.1.3-test
-# → Triggers test-pypi job → Publishes to TestPyPI
+mise run setup          # Install dependencies
+mise run dev            # Install in development mode (creates 'tg' command)
 ```
 
-**For Production PyPI:**
+### Testing
 ```bash
-gh release create v0.1.3 --generate-notes
-# or use: mise run gh:create-release
-# → Triggers publish job → Publishes to PyPI
+mise run test           # Run tests with coverage (main test command)
+mise run test:unit      # Unit tests only
+mise run test:cli       # CLI integration tests
+mise run tc             # Comprehensive coverage analysis with HTML report
+mise run test:smoke     # Quick smoke tests for basic functionality
+mise run tw             # Watch mode testing
 ```
 
-### Files Modified
+### Code Quality
+```bash
+mise run lint           # Comprehensive code quality checks (black, flake8, mypy, bandit)
+mise run format         # Format code with black and isort
+mise run lint:fix       # Auto-fix formatting issues
+```
 
-- `.github/workflows/publish.yml` - Fixed workflow triggers
-- `.mise.toml` - Added 6 new GitHub Actions tasks
-- Updated help output with GitHub Actions section
+### Validation
+```bash
+mise run validate       # Complete validation suite (lint + smoke + unit + integration)
+mise run validate:quick # Quick validation (format check + smoke test)
+```
+
+### CLI Testing
+```bash
+mise run tg:init        # Test initialization
+mise run tg:add         # Test adding connections
+mise run tg:list        # Test listing connections
+mise run tg:config      # Test configuration
+```
+
+## SSH Integration Architecture
+
+The application uses a safe, non-invasive approach to SSH config integration:
+
+1. **Backup**: Creates `~/.ssh/config.backup` before any changes
+2. **Managed Config**: All `tg` connections go to `~/.ssh/config.tengingarstjori`
+3. **Include Integration**: Adds single `Include ~/.ssh/config.tengingarstjori` line to main config
+4. **Preservation**: Existing SSH setup remains completely untouched
+
+Generated SSH configs support:
+- Basic connection parameters (host, user, port, key)
+- ProxyJump for bastion/jump servers
+- LocalForward and RemoteForward for port tunneling
+- Custom SSH options via extra_options dict
+
+## Testing Strategy
+
+- **Unit tests**: Focus on models.py and config_manager.py core functionality
+- **Integration tests**: Test CLI commands and SSH config generation
+- **Smoke tests**: Quick validation of imports and basic functionality
+- **Coverage target**: 80% for comprehensive coverage, 50% for basic testing
+
+## Dependencies
+
+- **Core**: textual, rich, pydantic, click
+- **Dev**: pytest, black, flake8, mypy
+- **Optional**: bandit (security), isort (import sorting)
+
+## File Structure
+
+```
+src/
+├── models.py          # SSHConnection Pydantic model
+├── config_manager.py  # SSH config integration & JSON persistence  
+├── cli.py            # Click CLI commands with Rich output
+└── setup.py          # Initial setup wizard
+
+tests/
+├── test_models.py         # Model validation and serialization
+├── test_config_manager.py # Config file operations and SSH integration
+└── test_cli.py           # CLI command testing
+```
+
+## Common Patterns
+
+- All CLI commands use Rich console for formatted output
+- SSH connections are validated using Pydantic models
+- Configuration changes are atomic (backup, modify, verify)
+- JSON persistence with datetime serialization support
+- Error handling with custom exceptions in src/exceptions.py
