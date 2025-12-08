@@ -542,6 +542,7 @@ def _display_connections_json(
         """Convert SSHConnection object to JSON-serializable dictionary."""
         # Base connection data that's always included
         data = {
+            "id": conn.id,
             "name": conn.name,
             "host": conn.host,
             "user": conn.user,
@@ -555,6 +556,10 @@ def _display_connections_json(
         if conn.identity_file:
             data["identity_file"] = conn.identity_file
 
+        # Always include tags if present
+        if conn.tags:
+            data["tags"] = conn.tags
+
         # Include detailed information if requested
         if detailed:
             # Advanced SSH options
@@ -564,6 +569,8 @@ def _display_connections_json(
                 data["local_forward"] = conn.local_forward
             if conn.remote_forward:
                 data["remote_forward"] = conn.remote_forward
+            if conn.extra_options:
+                data["extra_options"] = conn.extra_options
 
             # Metadata
             if conn.notes:
@@ -608,15 +615,69 @@ def _find_connection_by_ref(
 
 @cli.command()
 @click.argument("connection_ref")
-def show(connection_ref: str) -> None:
-    """Show detailed information about a connection."""
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format: table (default) or json",
+)
+def show(connection_ref: str, format: str) -> None:
+    """Show detailed information about a connection.
+
+    \b
+    Examples:
+      tg show myserver           # Table format
+      tg show myserver --format json    # JSON format
+      tg show 1 -f json          # JSON by connection number
+    """
     config_manager = SSHConfigManager()
 
     connection = _find_connection_by_ref(config_manager, connection_ref)
     if not connection:
         return
 
-    # Display detailed info
+    # Handle JSON output
+    if format == "json":
+        connection_data = {
+            "id": connection.id,
+            "name": connection.name,
+            "host": connection.host,
+            "user": connection.user,
+            "port": connection.port,
+        }
+
+        # Optional fields
+        if connection.hostname and connection.hostname != connection.host:
+            connection_data["hostname"] = connection.hostname
+        if connection.identity_file:
+            connection_data["identity_file"] = connection.identity_file
+        if connection.proxy_jump:
+            connection_data["proxy_jump"] = connection.proxy_jump
+        if connection.local_forward:
+            connection_data["local_forward"] = connection.local_forward
+        if connection.remote_forward:
+            connection_data["remote_forward"] = connection.remote_forward
+        if connection.extra_options:
+            connection_data["extra_options"] = connection.extra_options
+        if connection.notes:
+            connection_data["notes"] = connection.notes
+        if connection.tags:
+            connection_data["tags"] = connection.tags
+
+        # Metadata
+        connection_data["created_at"] = (
+            connection.created_at.isoformat() if connection.created_at else None
+        )
+        connection_data["last_used"] = (
+            connection.last_used.isoformat() if connection.last_used else None
+        )
+        connection_data["use_count"] = connection.use_count
+
+        print(json.dumps(connection_data, indent=2, ensure_ascii=False))
+        return
+
+    # Display detailed info in table format
     console.print(Panel(f"🔗 [bold]{connection.name}[/bold]", style="blue"))
 
     info_table = Table(show_header=False)
