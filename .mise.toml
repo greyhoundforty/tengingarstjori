@@ -125,6 +125,14 @@ echo "✅ Type checking passed"
 echo "🎉 Quick lint checks passed!"
 '''
 
+[tasks."lint:ty"]
+description = "Run ty type checker"
+run = '''
+echo "🔬 Running ty type checking..."
+uvx ty check src/ tests/ || (echo "❌ Type checking issues found."; exit 1)
+echo "✅ Type checking passed"
+'''
+
 [tasks.lint]
 description = "Run comprehensive code quality checks"
 run = '''
@@ -139,7 +147,11 @@ echo "✅ Linting check passed"
 
 echo "🔬 Running MyPy type checking..."
 python -m mypy src/ --ignore-missing-imports || (echo "❌ Type checking issues found."; exit 1)
-echo "✅ Type checking passed"
+echo "✅ MyPy type checking passed"
+
+echo "🔬 Running ty type checking..."
+uvx ty check src/ tests/ || (echo "❌ ty type checking issues found."; exit 1)
+echo "✅ ty type checking passed"
 
 echo "🛡️ Running security checks..."
 if command -v bandit &> /dev/null; then

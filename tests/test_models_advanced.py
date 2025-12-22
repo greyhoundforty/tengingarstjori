@@ -202,9 +202,20 @@ class TestSSHConnectionAdvanced:
             last_used=now,
         )
 
-        # Test JSON serialization
+        # Test Python serialization (Pydantic V2 default behavior)
+        # model_dump() returns Python objects by default
         data = conn.model_dump()
         assert isinstance(data["created_at"], datetime)
+
+        # Test JSON serialization (when_used='json' applies here)
+        # This is what gets used for JSON output
+        json_str = conn.model_dump_json()
+        assert now.isoformat() in json_str
+
+        # Also test with mode='json'
+        json_data = conn.model_dump(mode="json")
+        assert isinstance(json_data["created_at"], str)
+        assert json_data["created_at"] == now.isoformat()
 
         # Test that we can recreate from the data
         new_conn = SSHConnection(**data)
@@ -342,13 +353,22 @@ class TestSSHConnectionAdvanced:
         """Test that model configuration is set correctly."""
         # Test that the model has the expected configuration
         assert SSHConnection.model_config is not None
-        assert "json_encoders" in SSHConnection.model_config
 
-        # Test datetime encoding
+        # Pydantic V2: json_encoders is deprecated, using field_serializer instead
+        # Verify datetime serialization works correctly
         conn = SSHConnection(name="config-test", host="example.com", user="testuser")
 
         # Verify that datetime fields exist and are datetime objects
         assert isinstance(conn.created_at, datetime)
+
+        # Verify that datetime fields are serialized to ISO strings in JSON mode
+        json_data = conn.model_dump(mode="json")
+        assert isinstance(json_data["created_at"], str)
+        assert json_data["created_at"] == conn.created_at.isoformat()
+
+        # Verify Python mode returns datetime objects
+        python_data = conn.model_dump()
+        assert isinstance(python_data["created_at"], datetime)
 
     def test_field_descriptions(self):
         """Test that field descriptions are properly set."""

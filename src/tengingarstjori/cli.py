@@ -341,6 +341,404 @@ def add(
         console.print(f"[red]Failed to add connection '{name}'[/red]")
 
 
+def _get_field_selection_menu(connection: SSHConnection) -> List[str]:
+    """Display interactive menu for selecting fields to update.
+
+    Returns list of field keys selected for update.
+    """
+    console.print("\n[bold cyan]Select fields to update:[/bold cyan]")
+    console.print("[dim]Enter field numbers separated by commas (e.g., 1,3,5)[/dim]")
+    console.print("[dim]Or press Enter to cancel[/dim]\n")
+
+    fields = {
+        "1": ("name", "Connection name", connection.name),
+        "2": ("host", "Host/IP address", connection.host),
+        "3": ("user", "Username", connection.user),
+        "4": ("port", "SSH port", str(connection.port)),
+        "5": ("hostname", "SSH HostName", connection.hostname or "(not set)"),
+        "6": (
+            "identity_file",
+            "SSH key path",
+            connection.identity_file or "(default)",
+        ),
+        "7": ("proxy_jump", "ProxyJump", connection.proxy_jump or "(none)"),
+        "8": ("local_forward", "LocalForward", connection.local_forward or "(none)"),
+        "9": (
+            "remote_forward",
+            "RemoteForward",
+            connection.remote_forward or "(none)",
+        ),
+        "10": ("notes", "Notes", connection.notes or "(none)"),
+        "11": (
+            "tags",
+            "Tags",
+            ", ".join(connection.tags) if connection.tags else "(none)",
+        ),
+    }
+
+    # Display menu table
+    table = Table(show_header=True)
+    table.add_column("#", style="cyan", width=3)
+    table.add_column("Field", style="yellow")
+    table.add_column("Current Value", style="dim")
+
+    for num, (field_key, field_name, current_value) in fields.items():
+        table.add_row(num, field_name, str(current_value))
+
+    console.print(table)
+
+    # Get selection
+    selection = Prompt.ask(
+        "[cyan]Select fields to update (comma-separated)[/cyan]", default=""
+    )
+
+    if not selection.strip():
+        return []
+
+    # Parse selection
+    selected_fields = []
+    for num in selection.split(","):
+        num = num.strip()
+        if num in fields:
+            selected_fields.append(fields[num][0])  # field_key
+
+    return selected_fields
+
+
+def _update_field_interactive(
+    connection: SSHConnection, field_name: str, config_manager: SSHConfigManager
+) -> Any:
+    """Interactively update a single field.
+
+    Shows current value as default and prompts for new value.
+    """
+    current_value = getattr(connection, field_name)
+
+    # Special handling for specific fields
+    if field_name == "port":
+        new_value = Prompt.ask("[cyan]New port[/cyan]", default=str(current_value))
+        return int(new_value)
+
+    elif field_name == "identity_file":
+        # Reuse SSH key selection logic from add command
+        return _handle_ssh_key_selection(config_manager, None, interactive=True)
+
+    elif field_name == "tags":
+        current_tags = ", ".join(current_value) if current_value else ""
+        new_tags = Prompt.ask(
+            "[cyan]New tags (comma-separated)[/cyan]", default=current_tags
+        )
+        return [t.strip() for t in new_tags.split(",") if t.strip()]
+
+    elif field_name == "proxy_jump":
+        return Prompt.ask("[cyan]New ProxyJump[/cyan]", default=current_value or "")
+
+    elif field_name == "local_forward":
+        return Prompt.ask(
+            "[cyan]New LocalForward[/cyan]\n"
+            "[dim]Format: 3306:localhost:3306 or 8080:localhost:80,3000:localhost:3000[/dim]\n"
+            "[cyan]Enter port forwards[/cyan]",
+            default=current_value or "",
+        )
+
+    elif field_name == "remote_forward":
+        return Prompt.ask(
+            "[cyan]New RemoteForward[/cyan]\n"
+            "[dim]Format: 8080:localhost:80[/dim]\n"
+            "[cyan]Enter remote forwards[/cyan]",
+            default=current_value or "",
+        )
+
+    else:
+        # Generic text field
+        return Prompt.ask(
+            f"[cyan]New {field_name}[/cyan]",
+            default=str(current_value) if current_value else "",
+        )
+
+
+def _display_update_comparison(
+    old_connection: SSHConnection,
+    new_connection: SSHConnection,
+    updated_fields: List[str],
+) -> None:
+    """Display before/after comparison for updated fields."""
+    console.print("\n[bold yellow]Proposed Changes:[/bold yellow]\n")
+
+    table = Table(show_header=True)
+    table.add_column("Field", style="cyan")
+    table.add_column("Old Value", style="red")
+    table.add_column("New Value", style="green")
+
+    for field in updated_fields:
+        old_value = getattr(old_connection, field)
+        new_value = getattr(new_connection, field)
+
+        # Format values for display
+        old_display = str(old_value) if old_value else "(not set)"
+        new_display = str(new_value) if new_value else "(not set)"
+
+        # Special formatting for lists (tags)
+        if type(old_value).__name__ == "list":
+            old_display = ", ".join(old_value) if old_value else "(none)"
+        if type(new_value).__name__ == "list":
+            new_display = ", ".join(new_value) if new_value else "(none)"
+
+        table.add_row(field, old_display, new_display)
+
+    console.print(table)
+
+
+@cli.command()
+@click.argument("connection_ref")
+@click.option("--name", "-n", help="New connection name")
+@click.option("--host", "-h", help="New host/IP address")
+@click.option("--user", "-u", help="New username")
+@click.option("--port", "-p", type=int, help="New SSH port")
+@click.option("--hostname", help="New SSH HostName")
+@click.option("--key", "-k", help="New SSH private key path")
+@click.option("--proxy-jump", help="New ProxyJump configuration")
+@click.option("--local-forward", help="New LocalForward configuration")
+@click.option("--remote-forward", help="New RemoteForward configuration")
+@click.option("--notes", help="New connection notes")
+@click.option("--tags", help="New tags (comma-separated)")
+@click.option(
+    "--non-interactive",
+    is_flag=True,
+    default=False,
+    help="Use non-interactive mode (update only specified fields)",
+)
+def update(
+    connection_ref: str,
+    name: Optional[str],
+    host: Optional[str],
+    user: Optional[str],
+    port: Optional[int],
+    hostname: Optional[str],
+    key: Optional[str],
+    proxy_jump: Optional[str],
+    local_forward: Optional[str],
+    remote_forward: Optional[str],
+    notes: Optional[str],
+    tags: Optional[str],
+    non_interactive: bool,
+) -> None:
+    """Update an existing SSH connection.
+
+    \b
+    Non-interactive examples:
+      tg update myserver --host 192.168.1.100 --non-interactive
+      tg update myserver --host 10.0.1.50 --port 2222 --user admin --non-interactive
+      tg update 1 --host newhost.com --non-interactive
+
+    \b
+    Update connection name:
+      tg update old-name --name new-name --non-interactive
+
+    \b
+    Update port forwarding:
+      tg update db-server --local-forward "3306:localhost:3306" --non-interactive
+      tg update app-server --local-forward "8080:localhost:80,3000:localhost:3000" --non-interactive
+
+    \b
+    Update tags:
+      tg update prod-web --tags "production,web,critical" --non-interactive
+
+    \b
+    Interactive mode (field selection menu):
+      tg update myserver
+      tg update 1
+
+    \b
+    Notes:
+      - Connection can be referenced by name or number (from 'tg list')
+      - In non-interactive mode, only specified fields are updated
+      - In interactive mode, you select which fields to update from a menu
+      - Name updates are allowed but must not conflict with existing connections
+      - All updates trigger SSH config file regeneration
+    """
+    config_manager = SSHConfigManager()
+
+    if not config_manager.is_initialized():
+        console.print("[red]Please run 'tg init' first[/red]")
+        return
+
+    console.print(
+        Panel("✏️  [bold blue]Update SSH Connection[/bold blue]", style="blue")
+    )
+
+    # Find the connection
+    connection = _find_connection_by_ref(config_manager, connection_ref)
+    if not connection:
+        return
+
+    if non_interactive:
+        # Non-interactive mode: update only specified fields
+        updates: Dict[str, Any] = {}
+
+        if name is not None:
+            updates["name"] = name
+        if host is not None:
+            updates["host"] = host
+        if user is not None:
+            updates["user"] = user
+        if port is not None:
+            updates["port"] = port
+        if hostname is not None:
+            updates["hostname"] = hostname
+        if key is not None:
+            updates["identity_file"] = key
+        if proxy_jump is not None:
+            updates["proxy_jump"] = proxy_jump
+        if local_forward is not None:
+            updates["local_forward"] = local_forward
+        if remote_forward is not None:
+            updates["remote_forward"] = remote_forward
+        if notes is not None:
+            updates["notes"] = notes
+        if tags is not None:
+            updates["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+
+        if not updates:
+            console.print("[yellow]No fields specified for update[/yellow]")
+            console.print("[dim]Use --help to see available options[/dim]")
+            return
+
+        # Check for name conflicts
+        if "name" in updates:
+            new_name = updates["name"]
+            existing = config_manager.get_connection_by_name(new_name)
+            if existing and existing.id != connection.id:
+                console.print(f"[red]Connection name '{new_name}' already exists[/red]")
+                return
+
+        # Clean up empty strings to None for optional fields
+        def clean_option(value: Optional[str]) -> Optional[str]:
+            return value if value and value.strip() else None
+
+        for field in [
+            "hostname",
+            "identity_file",
+            "proxy_jump",
+            "local_forward",
+            "remote_forward",
+            "notes",
+        ]:
+            if field in updates and isinstance(updates[field], str):
+                updates[field] = clean_option(updates[field])
+
+        # Apply updates to connection
+        connection_data = connection.model_dump()
+        connection_data.update(updates)
+
+        # Create updated connection with validation
+        try:
+            updated_connection = SSHConnection.model_validate(connection_data)
+        except ValueError as e:
+            console.print(f"[red]Validation error: {e}[/red]")
+            if "LocalForward" in str(e) or "RemoteForward" in str(e):
+                console.print(
+                    "[yellow]Tip: LocalForward format should be 'local_port:remote_host:remote_port'[/yellow]"
+                )
+                console.print(
+                    "[yellow]Examples: '3306:localhost:3306' or '8080:localhost:80,3000:localhost:3000'[/yellow]"
+                )
+            return
+
+        # Save
+        if config_manager.update_connection(updated_connection):
+            console.print(
+                f"[green]✓[/green] Updated connection '{updated_connection.name}'"
+            )
+            # Show what was updated
+            for field, value in updates.items():
+                console.print(f"  [dim]{field}: {value}[/dim]")
+        else:
+            console.print("[red]Failed to update connection[/red]")
+
+    else:
+        # Interactive mode: field selection menu
+        console.print(f"\n[bold]Current connection: {connection.name}[/bold]")
+
+        # Get field selection
+        selected_fields = _get_field_selection_menu(connection)
+
+        if not selected_fields:
+            console.print("[yellow]No fields selected. Update cancelled.[/yellow]")
+            return
+
+        # Collect updates
+        updates_dict: Dict[str, Any] = {}
+        for field in selected_fields:
+            try:
+                new_value = _update_field_interactive(connection, field, config_manager)
+                updates_dict[field] = new_value
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Update cancelled by user[/yellow]")
+                return
+            except EOFError:
+                console.print("\n[yellow]Update cancelled[/yellow]")
+                return
+
+        # Check for name conflicts
+        if "name" in updates_dict:
+            new_name = updates_dict["name"]
+            existing = config_manager.get_connection_by_name(new_name)
+            if existing and existing.id != connection.id:
+                console.print(f"[red]Connection name '{new_name}' already exists[/red]")
+                return
+
+        # Clean up empty strings to None for optional fields
+        def clean_option(value: Optional[str]) -> Optional[str]:
+            return value if value and value.strip() else None
+
+        for field in [
+            "hostname",
+            "identity_file",
+            "proxy_jump",
+            "local_forward",
+            "remote_forward",
+            "notes",
+        ]:
+            if field in updates_dict and isinstance(updates_dict[field], str):
+                updates_dict[field] = clean_option(updates_dict[field])
+
+        # Create updated connection with validation
+        connection_data = connection.model_dump()
+        connection_data.update(updates_dict)
+
+        try:
+            updated_connection = SSHConnection.model_validate(connection_data)
+        except ValueError as e:
+            console.print(f"[red]Validation error: {e}[/red]")
+            if "LocalForward" in str(e) or "RemoteForward" in str(e):
+                console.print(
+                    "[yellow]Tip: LocalForward format should be 'local_port:remote_host:remote_port'[/yellow]"
+                )
+                console.print(
+                    "[yellow]Examples: '3306:localhost:3306' or '8080:localhost:80,3000:localhost:3000'[/yellow]"
+                )
+            return
+
+        # Display comparison
+        _display_update_comparison(
+            connection, updated_connection, list(updates_dict.keys())
+        )
+
+        # Confirm
+        if not Confirm.ask("\n[cyan]Apply these changes?[/cyan]", default=False):
+            console.print("[yellow]Update cancelled[/yellow]")
+            return
+
+        # Save
+        if config_manager.update_connection(updated_connection):
+            console.print(
+                f"\n[green]✓[/green] Updated connection '{updated_connection.name}'"
+            )
+        else:
+            console.print("[red]Failed to update connection[/red]")
+
+
 @cli.command()
 @click.option(
     "--detailed",

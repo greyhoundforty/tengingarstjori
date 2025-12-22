@@ -4,13 +4,13 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
 class SSHConnection(BaseModel):
     """Represents an SSH connection configuration."""
 
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+    model_config = ConfigDict()
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str = Field(..., description="Display name for the connection")
@@ -88,6 +88,13 @@ class SSHConnection(BaseModel):
             return v
 
         return cls._normalize_port_forward(v, "RemoteForward")
+
+    @field_serializer("created_at", "last_used", when_used="json")
+    def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
+        """Serialize datetime fields to ISO format strings for JSON mode."""
+        if dt is None:
+            return None
+        return dt.isoformat()
 
     @staticmethod
     def _normalize_port_forward(forward_str: str, forward_type: str) -> str:
