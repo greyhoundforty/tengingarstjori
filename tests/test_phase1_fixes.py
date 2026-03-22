@@ -3,9 +3,9 @@
 import pytest
 
 from tengingarstjori.exceptions import (
-    ConnectionError,
     DuplicateConnectionError,
     SSHConfigError,
+    SSHConnectionError,
     TengingarstjoriError,
     ValidationError,
 )
@@ -24,12 +24,12 @@ def test_exception_hierarchy():
     assert str(ssh_error) == "SSH config failed"
 
     # Test connection error
-    conn_error = ConnectionError("Connection failed")
+    conn_error = SSHConnectionError("Connection failed")
     assert isinstance(conn_error, TengingarstjoriError)
 
     # Test duplicate connection error
     dup_error = DuplicateConnectionError("test-server")
-    assert isinstance(dup_error, ConnectionError)
+    assert isinstance(dup_error, SSHConnectionError)
     assert "test-server" in str(dup_error)
     assert "already exists" in str(dup_error)
 

@@ -64,10 +64,10 @@ class TestSSHConfigManagerAdvanced:
             config_manager._save_settings()
 
     def test_update_ssh_config_error_handling(self, config_manager):
-        """Test error handling in update_ssh_config."""
+        """Test that _update_ssh_config propagates OS errors."""
         with patch("builtins.open", side_effect=OSError("Permission denied")):
-            # Should handle gracefully without crashing
-            config_manager._update_ssh_config()
+            with pytest.raises(OSError):
+                config_manager._update_ssh_config()
 
     def test_ensure_include_line_with_existing_config(self, config_manager):
         """Test ensure_include_line with existing SSH config."""

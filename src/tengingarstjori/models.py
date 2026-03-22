@@ -28,7 +28,7 @@ class SSHConnection(BaseModel):
     remote_forward: Optional[str] = Field(
         None, description="RemoteForward configuration"
     )
-    extra_options: dict = Field(
+    extra_options: dict[str, str] = Field(
         default_factory=dict, description="Additional SSH options"
     )
     notes: Optional[str] = Field(None, description="User notes")
@@ -36,6 +36,37 @@ class SSHConnection(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     last_used: Optional[datetime] = Field(None, description="Last connection time")
     use_count: int = Field(default=0, description="Number of times connected")
+
+    @field_validator("name", "host", "user", "hostname", "identity_file", "proxy_jump")
+    @classmethod
+    def reject_newlines(cls, v: Optional[str]) -> Optional[str]:
+        """Reject values containing newlines to prevent SSH config injection."""
+        if v is not None and ("\n" in v or "\r" in v):
+            raise ValueError("Value must not contain newline characters")
+        return v
+
+    @field_validator("notes")
+    @classmethod
+    def sanitize_notes(cls, v: Optional[str]) -> Optional[str]:
+        """Strip newlines from notes to prevent SSH config comment injection."""
+        if v is not None:
+            return v.replace("\n", " ").replace("\r", " ")
+        return v
+
+    @field_validator("extra_options")
+    @classmethod
+    def validate_extra_options(cls, v: dict[str, str]) -> dict[str, str]:
+        """Reject extra_options keys/values containing newlines."""
+        for key, value in v.items():
+            if "\n" in key or "\r" in key:
+                raise ValueError(
+                    f"extra_options key must not contain newlines: {key!r}"
+                )
+            if "\n" in value or "\r" in value:
+                raise ValueError(
+                    f"extra_options value must not contain newlines: {value!r}"
+                )
+        return v
 
     @field_validator("port")
     @classmethod

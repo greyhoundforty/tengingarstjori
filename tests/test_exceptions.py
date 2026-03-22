@@ -6,15 +6,15 @@ from tengingarstjori.exceptions import (
     BackupError,
     CLIError,
     ConfigurationError,
-    ConnectionError,
     ConnectionNotFoundError,
     DuplicateConnectionError,
     FileOperationError,
     InvalidSSHKeyError,
     KeyDiscoveryError,
-    PermissionError,
     SetupError,
     SSHConfigError,
+    SSHConnectionError,
+    SSHPermissionError,
     TengingarstjoriError,
     ValidationError,
 )
@@ -48,7 +48,7 @@ def test_ssh_config_error():
 
 def test_connection_error():
     """Test connection error."""
-    error = ConnectionError("Connection failed")
+    error = SSHConnectionError("Connection failed")
 
     assert isinstance(error, TengingarstjoriError)
     assert str(error) == "Connection failed"
@@ -124,7 +124,7 @@ def test_configuration_error():
 
 def test_permission_error():
     """Test permission error with resource context."""
-    error = PermissionError("/etc/ssh/config", "write")
+    error = SSHPermissionError("/etc/ssh/config", "write")
 
     assert isinstance(error, TengingarstjoriError)
     assert error.resource == "/etc/ssh/config"
@@ -137,7 +137,7 @@ def test_duplicate_connection_error():
     """Test duplicate connection error."""
     error = DuplicateConnectionError("my-server")
 
-    assert isinstance(error, ConnectionError)
+    assert isinstance(error, SSHConnectionError)
     assert isinstance(error, TengingarstjoriError)
     assert error.connection_name == "my-server"
     assert "my-server" in str(error)
@@ -148,7 +148,7 @@ def test_connection_not_found_error():
     """Test connection not found error."""
     error = ConnectionNotFoundError("my-server", "name")
 
-    assert isinstance(error, ConnectionError)
+    assert isinstance(error, SSHConnectionError)
     assert isinstance(error, TengingarstjoriError)
     assert error.identifier == "my-server"
     assert error.search_type == "name"
@@ -193,14 +193,14 @@ def test_exception_hierarchy():
     # Test that all custom exceptions inherit from TengingarstjoriError
     exceptions_to_test = [
         (SSHConfigError, ("Test message",)),
-        (ConnectionError, ("Test message",)),
+        (SSHConnectionError, ("Test message",)),
         (ValidationError, ("field", "value", "reason")),
         (SetupError, ("Test message",)),
         (FileOperationError, ("read", "/path", Exception())),
         (KeyDiscoveryError, ("Test message",)),
         (CLIError, ("command", "Test message")),
         (ConfigurationError, ("Test message",)),
-        (PermissionError, ("/resource", "operation")),
+        (SSHPermissionError, ("/resource", "operation")),
     ]
 
     for exception_class, args in exceptions_to_test:
@@ -211,14 +211,14 @@ def test_exception_hierarchy():
 
 def test_specialized_exception_hierarchy():
     """Test that specialized exceptions inherit from their parent classes."""
-    # DuplicateConnectionError should inherit from ConnectionError
+    # DuplicateConnectionError should inherit from SSHConnectionError
     error = DuplicateConnectionError("test")
-    assert isinstance(error, ConnectionError)
+    assert isinstance(error, SSHConnectionError)
     assert isinstance(error, TengingarstjoriError)
 
-    # ConnectionNotFoundError should inherit from ConnectionError
+    # ConnectionNotFoundError should inherit from SSHConnectionError
     error = ConnectionNotFoundError("test")
-    assert isinstance(error, ConnectionError)
+    assert isinstance(error, SSHConnectionError)
     assert isinstance(error, TengingarstjoriError)
 
     # InvalidSSHKeyError should inherit from ValidationError
@@ -234,7 +234,7 @@ def test_exception_catching():
         raise DuplicateConnectionError("test")
 
     # Test catching by parent class
-    with pytest.raises(ConnectionError):
+    with pytest.raises(SSHConnectionError):
         raise DuplicateConnectionError("test")
 
     # Test catching by base class

@@ -45,7 +45,7 @@ class SSHConfigError(TengingarstjoriError):
     pass
 
 
-class ConnectionError(TengingarstjoriError):
+class SSHConnectionError(TengingarstjoriError):
     """
     Exception raised for SSH connection management errors.
 
@@ -159,7 +159,7 @@ class ConfigurationError(TengingarstjoriError):
     pass
 
 
-class PermissionError(TengingarstjoriError):
+class SSHPermissionError(TengingarstjoriError):
     """
     Exception raised for permission-related errors.
 
@@ -181,7 +181,7 @@ class PermissionError(TengingarstjoriError):
         super().__init__(message)
 
 
-class DuplicateConnectionError(ConnectionError):
+class DuplicateConnectionError(SSHConnectionError):
     """Exception raised when attempting to create a connection with a duplicate name."""
 
     def __init__(self, connection_name: str):
@@ -196,7 +196,7 @@ class DuplicateConnectionError(ConnectionError):
         super().__init__(message)
 
 
-class ConnectionNotFoundError(ConnectionError):
+class ConnectionNotFoundError(SSHConnectionError):
     """Exception raised when a requested connection cannot be found."""
 
     def __init__(self, identifier: str, search_type: str = "name"):

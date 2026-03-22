@@ -5,6 +5,7 @@ Handles reading/writing SSH configurations without disrupting existing setup.
 
 import contextlib
 import json
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +27,7 @@ class SSHConfigManager:
         self.settings_file = self.config_dir / "settings.json"
 
         # Ensure directories exist
-        self.config_dir.mkdir(exist_ok=True)
+        self.config_dir.mkdir(mode=0o700, exist_ok=True)
         self.ssh_dir.mkdir(mode=0o700, exist_ok=True)
 
         self.connections: List[SSHConnection] = []
@@ -56,44 +57,39 @@ class SSHConfigManager:
                 self.settings = {}
 
     def _save_connections(self) -> None:
-        """Save connections to disk."""
-        try:
-            with open(self.connections_file, "w") as f:
-                json.dump(
-                    [conn.model_dump() for conn in self.connections],
-                    f,
-                    indent=2,
-                    default=str,
-                )
-        except Exception as e:
-            print(f"Error saving connections: {e}")
+        """Save connections to disk with restricted permissions."""
+        fd = os.open(
+            self.connections_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+        )
+        with os.fdopen(fd, "w") as f:
+            json.dump(
+                [conn.model_dump() for conn in self.connections],
+                f,
+                indent=2,
+                default=str,
+            )
 
     def _save_settings(self) -> None:
-        """Save settings to disk."""
-        try:
-            with open(self.settings_file, "w") as f:
-                json.dump(self.settings, f, indent=2)
-        except Exception as e:
-            print(f"Error saving settings: {e}")
+        """Save settings to disk with restricted permissions."""
+        fd = os.open(self.settings_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump(self.settings, f, indent=2)
 
     def _update_ssh_config(self) -> None:
         """Update the managed SSH config file and ensure inclusion."""
-        try:
-            # Write managed config
-            with open(self.managed_config, "w") as f:
-                f.write("# Tengingarstjori SSH Connections\n")
-                f.write(f"# Generated on {datetime.now().isoformat()}\n")
-                f.write("# Do not edit manually - use 'tg' commands\n\n")
+        # Write managed config with restricted permissions (SSH requires 0600)
+        fd = os.open(self.managed_config, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write("# Tengingarstjori SSH Connections\n")
+            f.write(f"# Generated on {datetime.now().isoformat()}\n")
+            f.write("# Do not edit manually - use 'tg' commands\n\n")
 
-                for conn in self.connections:
-                    f.write(conn.to_ssh_config_block())
-                    f.write("\n")
+            for conn in self.connections:
+                f.write(conn.to_ssh_config_block())
+                f.write("\n")
 
-            # Ensure include line exists in main config
-            self._ensure_include_line()
-
-        except Exception as e:
-            print(f"Error updating SSH config: {e}")
+        # Ensure include line exists in main config
+        self._ensure_include_line()
 
     def _ensure_include_line(self) -> None:
         """Ensure the Include line exists in the main SSH config."""
@@ -114,8 +110,8 @@ class SSHConfigManager:
         for pattern in corrupted_patterns:
             existing_content = existing_content.replace(pattern, "")
 
-        # Check if clean include line already exists
-        if include_line in existing_content:
+        # Check if clean include line already exists as a real (uncommented) line
+        if any(line.strip() == include_line for line in existing_content.splitlines()):
             return
 
         # Backup existing config
@@ -150,10 +146,12 @@ class SSHConfigManager:
                 and key_file.name not in key_patterns
             ):
                 # Check if it looks like a private key
-                with contextlib.suppress(OSError, ValueError), open(key_file, "r") as f:
-                    first_line = f.readline().strip()
-                    if "PRIVATE KEY" in first_line:
-                        found_keys.append(str(key_file))
+                with contextlib.suppress(OSError, ValueError):
+                    if key_file.stat().st_size <= 4096:
+                        with open(key_file, "r") as f:
+                            first_line = f.readline().strip()
+                            if "PRIVATE KEY" in first_line:
+                                found_keys.append(str(key_file))
 
         return found_keys
 
@@ -231,7 +229,7 @@ class SSHConfigManager:
     def is_initialized(self) -> bool:
         """Check if the system has been initialized."""
         result = self.get_setting("initialized", False)
-        return bool(result) if isinstance(result, bool) else False
+        return bool(result)
 
     def mark_initialized(self) -> None:
         """Mark the system as initialized."""

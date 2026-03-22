@@ -4,6 +4,7 @@ Provides 'tg' commands for managing SSH connections.
 """
 
 import json
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -57,15 +58,13 @@ def init() -> None:
             # Ensure the .ssh directory exists
             ssh_config_path.parent.mkdir(mode=0o700, exist_ok=True)
 
-            # Create the config file with a timestamp comment
+            # Create the config file with restricted permissions atomically
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with open(ssh_config_path, "w") as f:
+            fd = os.open(ssh_config_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
                 f.write(
                     f"# SSH config file created by Tengingarstjóri on {timestamp}\n\n"
                 )
-
-            # Set proper permissions
-            ssh_config_path.chmod(0o600)
 
             console.print(
                 "[green]✓[/green] Created SSH config file with proper permissions"
@@ -94,9 +93,13 @@ def _get_required_field(
     error_msg: str,
 ) -> Optional[str]:
     """Get required fields for connection."""
-    if not value:
+    if not value or not value.strip():
         if interactive:
-            return Prompt.ask(prompt_text)
+            result = Prompt.ask(prompt_text)
+            if not result or not result.strip():
+                console.print(f"[red]{error_msg}[/red]")
+                return None
+            return result
         else:
             console.print(f"[red]{error_msg}[/red]")
             return None
@@ -277,7 +280,13 @@ def add(
     if port is None:
         if interactive:
             port_input = Prompt.ask("[cyan]Port[/cyan]", default="22")
-            port = int(port_input)
+            try:
+                port = int(port_input)
+            except ValueError:
+                console.print(
+                    f"[red]Invalid port '{port_input}': must be a number[/red]"
+                )
+                return
         else:
             port = 22
 
@@ -417,7 +426,11 @@ def _update_field_interactive(
     # Special handling for specific fields
     if field_name == "port":
         new_value = Prompt.ask("[cyan]New port[/cyan]", default=str(current_value))
-        return int(new_value)
+        try:
+            return int(new_value)
+        except ValueError:
+            console.print(f"[red]Invalid port '{new_value}': must be a number[/red]")
+            return current_value
 
     elif field_name == "identity_file":
         # Reuse SSH key selection logic from add command
@@ -1221,8 +1234,8 @@ def fix_config() -> None:
 
             # Remove all variations of corrupted include lines
             corrupted_patterns = [
-                f"Include {managed_config_path}\\\\n\\\\n",
-                f"Include {managed_config_path}\\\\n",
+                f"Include {managed_config_path}\\n\\n",
+                f"Include {managed_config_path}\\n",
             ]
 
             original_content = content
@@ -1305,38 +1318,38 @@ def validate() -> None:
     issues_found = False
 
     for connection in connections:
-        # Check LocalForward syntax
-        if connection.local_forward:
-            try:
-                # Test validation by creating a new connection with same data
-                test_data = connection.model_dump()
-                SSHConnection.model_validate(test_data)
-                console.print(
-                    f"[green]✓[/green] {connection.name}: LocalForward syntax OK"
-                )
-            except ValueError as e:
-                console.print(
-                    f"[red]✗[/red] {connection.name}: LocalForward issue - {e}"
-                )
-                issues_found = True
+        conn_issues = []
 
-        # Check RemoteForward syntax
-        if connection.remote_forward:
-            try:
-                # Test validation by creating a new connection with same data
-                test_data = connection.model_dump()
-                SSHConnection.model_validate(test_data)
-                if (
-                    not connection.local_forward
-                ):  # Only show if we didn't already validate above
-                    console.print(
-                        f"[green]✓[/green] {connection.name}: RemoteForward syntax OK"
-                    )
-            except ValueError as e:
-                console.print(
-                    f"[red]✗[/red] {connection.name}: RemoteForward issue - {e}"
+        # Check name has no spaces (breaks SSH config Host matching)
+        if " " in connection.name:
+            conn_issues.append("name contains spaces")
+
+        # Check host is not blank
+        if not connection.host.strip():
+            conn_issues.append("host is empty")
+
+        # Check identity file exists on disk if specified
+        if connection.identity_file:
+            key_path = Path(connection.identity_file).expanduser()
+            if not key_path.exists():
+                conn_issues.append(
+                    f"identity file not found: {connection.identity_file}"
                 )
-                issues_found = True
+
+        # Verify SSH config block can be generated cleanly
+        try:
+            block = connection.to_ssh_config_block()
+            if not block.strip():
+                conn_issues.append("generated SSH config block is empty")
+        except Exception as e:
+            conn_issues.append(f"config block generation failed: {e}")
+
+        if conn_issues:
+            for issue in conn_issues:
+                console.print(f"[red]✗[/red] {connection.name}: {issue}")
+            issues_found = True
+        else:
+            console.print(f"[green]✓[/green] {connection.name}: OK")
 
     if not issues_found:
         console.print("\n[green]All configurations are valid![/green]")
