@@ -64,6 +64,15 @@ Rather than modifying your main SSH config directly, Tengingarstjóri will:
 3. **Manage connections separately**: All additions/changes go to the managed file
 4. **Preserve your existing SSH setup**: Your existing SSH config remains untouched
 
+## Security
+
+Tengingarstjóri is designed to handle sensitive SSH configuration safely:
+
+- **Restricted file permissions**: `connections.json`, `~/.ssh/config.tengingarstjori`, and the `~/.tengingarstjori/` config directory are created with `0600`/`0700` permissions atomically — there is no window where files are world-readable.
+- **SSH config injection prevention**: All user-supplied fields (`name`, `host`, `user`, `identity_file`, `proxy_jump`, `extra_options`) are validated to reject newline characters before being written into the SSH config. Notes have newlines stripped. This prevents crafted values from injecting arbitrary SSH config directives.
+- **Non-destructive config management**: Only a single `Include` line is added to your main `~/.ssh/config`. All managed connections live in a separate file that can be inspected, backed up, or removed independently.
+- **Backup before changes**: A backup of your main SSH config is created at `~/.ssh/config.backup` before any modification.
+
 ## Usage Examples
 
 ### Basic Connection Management
