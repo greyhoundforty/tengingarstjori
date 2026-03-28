@@ -220,3 +220,6 @@ test_install_env/
 
 # Claude Code configuration
 .claude/
+
+# Great Docs build directory (ephemeral, do not commit)
+great-docs/

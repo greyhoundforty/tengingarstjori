@@ -38,6 +38,7 @@ dependencies = [
     "rich>=13.0.0",
     "pydantic>=2.0.0",
     "click>=8.1.0",
+    "quarto>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -74,11 +75,11 @@ docs = [
 tg = "tengingarstjori.cli:cli"
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/tengingarstjori"
-"Bug Reports" = "https://github.com/yourusername/tengingarstjori/issues"
-"Source" = "https://github.com/yourusername/tengingarstjori"
-"Documentation" = "https://github.com/yourusername/tengingarstjori#readme"
-"Changelog" = "https://github.com/yourusername/tengingarstjori/blob/main/CHANGELOG.md"
+"Homepage" = "https://github.com/greyhoundforty/tengingarstjori"
+"Bug Reports" = "https://github.com/greyhoundforty/tengingarstjori/issues"
+"Source" = "https://github.com/greyhoundforty/tengingarstjori"
+"Documentation" = "https://github.com/greyhoundforty/tengingarstjori#readme"
+"Changelog" = "https://github.com/greyhoundforty/tengingarstjori/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

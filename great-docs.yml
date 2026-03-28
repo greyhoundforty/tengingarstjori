@@ -1,0 +1,136 @@
+# Great Docs Configuration
+# See https://posit-dev.github.io/great-docs/user-guide/03-configuration.html
+
+# Module Name (optional)
+# ----------------------
+# Set this if your importable module name differs from the project name.
+# Example: project 'py-yaml12' with module name 'yaml12'
+# module: yaml12
+
+# Docstring Parser
+# ----------------
+# The docstring format used in your package (numpy, google, or sphinx)
+parser: google
+
+# Dynamic Introspection
+# ---------------------
+# Use runtime introspection for more accurate documentation (default: true)
+# Set to false if your package has cyclic alias issues (e.g., PyO3/Rust bindings)
+dynamic: true
+
+# API Discovery Settings
+# ----------------------
+# Exclude items from auto-documentation
+# exclude:
+#   - InternalClass
+#   - helper_function
+
+# Logo & Favicon
+# ---------------
+# Point to a single logo file (replaces the text title in the navbar):
+# logo: assets/logo.svg
+#
+# For light/dark variants:
+# logo:
+#   light: assets/logo-light.svg
+#   dark: assets/logo-dark.svg
+#
+# To show the text title alongside the logo, add: show_title: true
+
+# Author Information
+# ------------------
+# Author metadata for display in the landing page sidebar
+# You can add additional fields: github, orcid, affiliation, homepage
+authors:
+  - name: Ryan Tiffany
+    role: Author
+    # affiliation: 
+    email: ryantiffany@fastmail.com
+    github: greyhoundforty
+    # orcid: 
+    # homepage: 
+
+# Funding / Copyright Holder
+# --------------------------
+# Credit the organization that funds or holds copyright for this package.
+# Displays in sidebar and footer. Homepage and ROR provide links.
+# funding:
+#   name: "Posit Software, PBC"
+#   roles:
+#     - Copyright holder
+#     - funder
+#   homepage: https://posit.co
+#   ror: https://ror.org/03wc8by49
+
+# API Reference Structure
+# -----------------------
+# Customize the sections below to organize your API documentation.
+# - Reorder items within a section to change their display order
+# - Move items between sections or create new sections
+# - Use 'members: false' to exclude methods from documentation
+# - Add 'desc:' to sections for descriptions
+
+reference:
+  - title: Classes
+    desc: Main classes provided by the package
+    contents:
+      - name: SSHConfigManager
+        members: false  # 11 methods listed below
+      - name: SSHConnection
+        members: false  # 9 methods listed below
+
+  - title: SSHConfigManager Methods
+    desc: Methods for the SSHConfigManager class
+    contents:
+      - SSHConfigManager.discover_ssh_keys
+      - SSHConfigManager.add_connection
+      - SSHConfigManager.remove_connection
+      - SSHConfigManager.update_connection
+      - SSHConfigManager.get_connection
+      - SSHConfigManager.get_connection_by_name
+      - SSHConfigManager.list_connections
+      - SSHConfigManager.update_setting
+      - SSHConfigManager.get_setting
+      - SSHConfigManager.is_initialized
+      - SSHConfigManager.mark_initialized
+
+  - title: SSHConnection Methods
+    desc: Methods for the SSHConnection class
+    contents:
+      - SSHConnection.reject_newlines
+      - SSHConnection.sanitize_notes
+      - SSHConnection.validate_extra_options
+      - SSHConnection.validate_port
+      - SSHConnection.validate_local_forward
+      - SSHConnection.validate_remote_forward
+      - SSHConnection.serialize_datetime
+      - SSHConnection.to_ssh_config_block
+      - SSHConnection.update_usage
+
+  - title: Constants
+    desc: Module-level constants and data
+    contents:
+      - __description__
+
+# Site Settings
+# -------------
+# site:
+#   theme: flatly              # Quarto theme (default: flatly)
+#   toc: true                  # Show table of contents (default: true)
+#   toc-depth: 2               # TOC heading depth (default: 2)
+#   toc-title: On this page    # TOC title (default: "On this page")
+
+# Jupyter Kernel
+# --------------
+# Jupyter kernel to use for executing code cells in .qmd files.
+# This is set at the project level so it applies to all pages, including
+# auto-generated API reference pages. Can be overridden in individual .qmd
+# file frontmatter if needed for special cases.
+jupyter: python3
+
+# CLI Documentation
+# -----------------
+# cli:
+#   enabled: true              # Enable CLI documentation
+#   module: my_package.cli     # Module containing Click commands
+#   name: cli                  # Name of the Click command object
