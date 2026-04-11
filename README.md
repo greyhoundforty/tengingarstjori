@@ -10,17 +10,10 @@
 pip install tengingarstjori
 ```
 
-**Ubuntu 23.04+ Users:** See [UBUNTU_INSTALL.md](UBUNTU_INSTALL.md) for handling "externally managed environment" restrictions. We recommend using `pipx`:
-
-```bash
-sudo apt install pipx
-pipx install tengingarstjori
-```
-
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/tengingarstjori.git
+git clone https://github.com/greyhoundforty/tengingarstjori.git
 cd tengingarstjori
 pip install -e .
 ```
@@ -296,148 +289,6 @@ cat ~/.ssh/config.tengingarstjori
 | `tg fix-forwards` | Auto-correct old-style port forwarding syntax |
 | `tg reset` | Restore original SSH config from backup |
 
-## Python API
-
-Tengingarstjóri can also be used as a Python library:
-
-```python
-from tengingarstjori import SSHConfigManager, SSHConnection
-
-# Create a config manager
-config_manager = SSHConfigManager()
-
-# Create a new connection
-connection = SSHConnection(
-    name="api-server",
-    host="api.company.com",
-    user="apiuser",
-    port=2222,
-    proxy_jump="bastion.company.com",
-    local_forward="8080:localhost:8080",
-    notes="API server with tunnel"
-)
-
-# Add the connection
-config_manager.add_connection(connection)
-
-# List all connections
-connections = config_manager.list_connections()
-
-# Get a specific connection
-conn = config_manager.get_connection_by_name("api-server")
-```
-
-## Testing Your Setup
-
-### Quick Feature Test
-```bash
-# Run the automated feature demonstration
-chmod +x test_features.sh
-./test_features.sh
-
-# Reset for clean testing
-./reset_tg.sh
-```
-
-### Manual Testing
-```bash
-# Test basic functionality
-tg init
-tg add -n "test-server" -h "example.com" -u "user"
-tg list
-tg show test-server
-
-# Test advanced features
-tg add -n "test-proxy" -h "internal.example.com" -u "admin" \
-    --proxy-jump "bastion.example.com" \
-    --local-forward "3306:localhost:3306" \
-    --notes "Test database access via bastion"
-
-tg list --detailed
-```
-
-### Verify SSH Configuration
-```bash
-# Check generated SSH config
-cat ~/.ssh/config.tengingarstjori
-
-# Test actual SSH connection
-ssh test-server
-
-# Test with debug output
-ssh -vvv test-server
-```
-
-## Development
-
-### Installing for Development
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/tengingarstjori.git
-cd tengingarstjori
-
-# Install in development mode
-pip install -e .[dev]
-
-# Run tests
-pytest
-
-# Run code quality checks
-black src tests
-flake8 src tests
-mypy src
-```
-
-### Build and Test Package
-
-```bash
-# Build package
-python -m build
-
-# Test package
-python -m twine check dist/*
-
-# Install and test
-pip install dist/*.whl
-tg --help
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Connection fails through bastion:**
-```bash
-# Test bastion connectivity first
-ssh bastion.company.com
-
-# Test ProxyJump manually
-ssh -J bastion.company.com user@target-host
-```
-
-**Port forwarding not working:**
-```bash
-# Check if ports are listening
-netstat -an | grep LISTEN
-lsof -i :3306  # Check specific port
-
-# Test database connection through tunnel
-mysql -h localhost -P 3306 -u username -p
-```
-
-**SSH config issues:**
-```bash
-# Fix corrupted configuration
-tg fix-config
-
-# Reset to original state
-tg reset
-
-# Regenerate managed config
-tg refresh
-```
-
 ### File Locations
 - **Main SSH config**: `~/.ssh/config`
 - **Managed config**: `~/.ssh/config.tengingarstjori`
@@ -448,10 +299,6 @@ tg refresh
 ## Additional Resources
 
 - **[docs/demo.md](docs/demo.md)** - Live executable demo document (all commands with captured output)
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Comprehensive usage guide
-- **[UBUNTU_INSTALL.md](UBUNTU_INSTALL.md)** - Ubuntu installation guide (handling "externally managed" environments)
-- **[PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md)** - PyPI publishing guide for maintainers
-- **[CHANGELOG.md](CHANGELOG.md)** - Detailed change history
 
 ## Development Commands
 
