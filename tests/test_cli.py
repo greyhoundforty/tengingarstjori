@@ -200,7 +200,7 @@ class TestCLIArguments:
         result = runner.invoke(cli, ["--version"])
 
         assert result.exit_code == 0
-        assert "0.1.0" in result.output
+        assert "0.2.2" in result.output
 
     def test_main_help(self, runner):
         """Test main CLI help."""

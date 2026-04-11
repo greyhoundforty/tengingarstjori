@@ -3,7 +3,12 @@
 A TUI-based SSH connection manager with smart config integration.
 """
 
-__version__ = "0.1.0"
+try:
+    from importlib.metadata import version
+
+    __version__ = version("tengingarstjori")
+except Exception:
+    __version__ = "0.0.0"
 __author__ = "Ryan"
 __email__ = "ryan@example.com"
 __description__ = "SSH Connection Manager with TUI interface"

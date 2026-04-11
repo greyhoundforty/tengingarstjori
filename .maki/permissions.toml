@@ -31,4 +31,5 @@ allow = [
     ".venv/bin/flake8 *",
     ".venv/bin/pytest *",
     ".venv/bin/pre-commit *",
+    "sort *",
 ]
