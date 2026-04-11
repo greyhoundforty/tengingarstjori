@@ -123,7 +123,10 @@ class SSHConfigManager:
         # Add include line at the top
         new_content = f"{include_line}\n\n{existing_content.strip()}\n"
 
-        with open(self.main_ssh_config, "w") as f:
+        # Use os.open with explicit mode so the file is always created 0o600
+        # if it doesn't exist, matching the permission used for other sensitive files.
+        fd = os.open(self.main_ssh_config, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
             f.write(new_content)
 
         print(f"Added include line to {self.main_ssh_config}")

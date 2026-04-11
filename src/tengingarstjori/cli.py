@@ -1824,8 +1824,6 @@ def test(connection_ref: Optional[str], test_all: bool, timeout: int) -> None:
                     f"ConnectTimeout={timeout}",
                     "-o",
                     "BatchMode=yes",
-                    "-o",
-                    "StrictHostKeyChecking=no",
                     conn.name,
                     "exit",
                 ],
