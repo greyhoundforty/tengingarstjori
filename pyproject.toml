@@ -34,11 +34,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "textual>=3.5.0",
     "rich>=13.0.0",
     "pydantic>=2.0.0",
     "click>=8.1.0",
-    "quarto>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -123,7 +121,6 @@ show_error_codes = true
 
 [[tool.mypy.overrides]]
 module = [
-    "textual.*",
     "rich.*",
 ]
 ignore_missing_imports = true

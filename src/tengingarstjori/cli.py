@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 from datetime import datetime
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +18,11 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+try:
+    __version__ = _pkg_version("tengingarstjori")
+except Exception:
+    __version__ = "0.0.0"
+
 from .config_manager import SSHConfigManager
 from .models import SSHConnection
 from .setup import run_initial_setup
@@ -25,7 +31,7 @@ console = Console()
 
 
 @click.group()
-@click.version_option(version="0.1.0")
+@click.version_option(version=__version__)
 def cli() -> None:
     """Tengingarstjóri - SSH Connection Manager.
 
