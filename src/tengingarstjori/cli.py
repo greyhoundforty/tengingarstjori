@@ -782,7 +782,7 @@ def update(
 )
 @click.option("--unused", is_flag=True, help="Show only unused connections")
 def list(detailed: bool, format: str, tag: Optional[str], search: Optional[str], sort: Optional[str], unused: bool) -> None:
-    r"""List all SSH connections.
+    """List all SSH connections.
 
     \b
     Basic usage:
