@@ -397,7 +397,7 @@ def _get_field_selection_menu(connection: SSHConnection) -> List[str]:
     table.add_column("Field", style="yellow")
     table.add_column("Current Value", style="dim")
 
-    for num, (field_key, field_name, current_value) in fields.items():
+    for num, (_field_key, field_name, current_value) in fields.items():
         table.add_row(num, field_name, str(current_value))
 
     console.print(table)
@@ -781,7 +781,14 @@ def update(
     help="Sort connections",
 )
 @click.option("--unused", is_flag=True, help="Show only unused connections")
-def list(detailed: bool, format: str, tag: Optional[str], search: Optional[str], sort: Optional[str], unused: bool) -> None:
+def list(
+    detailed: bool,
+    format: str,
+    tag: Optional[str],
+    search: Optional[str],
+    sort: Optional[str],
+    unused: bool,
+) -> None:
     """List all SSH connections.
 
     \b
@@ -1625,7 +1632,9 @@ def export_cmd(output: Optional[str], export_format: str, strip_keys: bool) -> N
     if output:
         path = Path(output)
         path.write_text(result)
-        console.print(f"[green]✓[/green] Exported {len(connections)} connections to {output}")
+        console.print(
+            f"[green]✓[/green] Exported {len(connections)} connections to {output}"
+        )
     else:
         print(result)
 
@@ -1664,7 +1673,7 @@ def import_cmd(filepath: str, strategy: str) -> None:
         console.print(f"[red]Invalid JSON: {e}[/red]")
         return
 
-    if isinstance(data, dict) or not hasattr(data, '__iter__'):
+    if isinstance(data, dict) or not hasattr(data, "__iter__"):
         console.print("[red]Expected a JSON array of connections[/red]")
         return
 
@@ -1685,7 +1694,9 @@ def import_cmd(filepath: str, strategy: str) -> None:
         existing = config_manager.get_connection_by_name(conn.name)
         if existing:
             if strategy == "skip":
-                console.print(f"[yellow]Skipped '{conn.name}' (already exists)[/yellow]")
+                console.print(
+                    f"[yellow]Skipped '{conn.name}' (already exists)[/yellow]"
+                )
                 skipped += 1
                 continue
             elif strategy == "overwrite":
@@ -1694,7 +1705,9 @@ def import_cmd(filepath: str, strategy: str) -> None:
                 original_name = conn.name
                 counter = 2
                 while config_manager.get_connection_by_name(conn.name):
-                    conn = conn.model_copy(update={"name": f"{original_name}-{counter}"})
+                    conn = conn.model_copy(
+                        update={"name": f"{original_name}-{counter}"}
+                    )
                     counter += 1
                 console.print(f"[dim]Renamed '{original_name}' to '{conn.name}'[/dim]")
 
@@ -1704,7 +1717,9 @@ def import_cmd(filepath: str, strategy: str) -> None:
             console.print(f"[red]✗[/red] Failed to add '{conn.name}'")
             errors += 1
 
-    console.print(f"\n[green]✓[/green] Imported: {imported}, Skipped: {skipped}, Errors: {errors}")
+    console.print(
+        f"\n[green]✓[/green] Imported: {imported}, Skipped: {skipped}, Errors: {errors}"
+    )
 
 
 @cli.command()
@@ -1748,7 +1763,7 @@ def clone(source_ref: str, new_name: str) -> None:
     if config_manager.add_connection(new_conn):
         console.print(f"[green]✓[/green] Cloned '{source.name}' as '{new_name}'")
     else:
-        console.print(f"[red]Failed to clone connection[/red]")
+        console.print("[red]Failed to clone connection[/red]")
 
 
 @cli.command()
@@ -1799,9 +1814,12 @@ def test(connection_ref: Optional[str], test_all: bool, timeout: int) -> None:
             result = subprocess.run(
                 [
                     "ssh",
-                    "-o", f"ConnectTimeout={timeout}",
-                    "-o", "BatchMode=yes",
-                    "-o", "StrictHostKeyChecking=no",
+                    "-o",
+                    f"ConnectTimeout={timeout}",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "StrictHostKeyChecking=no",
                     conn.name,
                     "exit",
                 ],
@@ -1812,7 +1830,9 @@ def test(connection_ref: Optional[str], test_all: bool, timeout: int) -> None:
                 console.print(f"[green]✓[/green] {conn.name}: OK")
             else:
                 stderr = result.stderr.decode().strip()
-                console.print(f"[red]✗[/red] {conn.name}: Failed ({stderr or 'unknown error'})")
+                console.print(
+                    f"[red]✗[/red] {conn.name}: Failed ({stderr or 'unknown error'})"
+                )
         except subprocess.TimeoutExpired:
             console.print(f"[yellow]⏱[/yellow] {conn.name}: Timeout ({timeout}s)")
         except FileNotFoundError:
@@ -1866,7 +1886,9 @@ def history(show_all: bool, limit: int) -> None:
     table.add_column("Connection", style="blue")
 
     for i, conn in enumerate(used, 1):
-        last_used = conn.last_used.strftime("%Y-%m-%d %H:%M") if conn.last_used else "Never"
+        last_used = (
+            conn.last_used.strftime("%Y-%m-%d %H:%M") if conn.last_used else "Never"
+        )
         table.add_row(
             str(i),
             conn.name,
@@ -1880,7 +1902,12 @@ def history(show_all: bool, limit: int) -> None:
 
 @cli.command()
 @click.argument("connection_ref")
-@click.option("--config", "show_config", is_flag=True, help="Show SSH config block instead of command")
+@click.option(
+    "--config",
+    "show_config",
+    is_flag=True,
+    help="Show SSH config block instead of command",
+)
 def snippet(connection_ref: str, show_config: bool) -> None:
     """Show the SSH command or config block for a connection.
 

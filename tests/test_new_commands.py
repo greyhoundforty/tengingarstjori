@@ -98,7 +98,9 @@ class TestConnectCommand:
         assert result.exit_code == 0
         assert "ssh prod-web" in result.output
 
-    def test_connect_updates_usage(self, runner, mock_config_manager, sample_connections):
+    def test_connect_updates_usage(
+        self, runner, mock_config_manager, sample_connections
+    ):
         old_count = sample_connections[0].use_count
         result = runner.invoke(connect, ["prod-web", "--dry-run"])
         assert result.exit_code == 0
@@ -140,7 +142,9 @@ class TestListFilters:
         assert "bastion" in result.output
         assert "prod-web" not in result.output
 
-    def test_list_search_in_notes(self, runner, mock_config_manager, sample_connections):
+    def test_list_search_in_notes(
+        self, runner, mock_config_manager, sample_connections
+    ):
         result = runner.invoke(list, ["--search", "database"])
         assert result.exit_code == 0
         assert "staging-db" in result.output
@@ -155,7 +159,11 @@ class TestListFilters:
         result = runner.invoke(list, ["--sort", "name"])
         assert result.exit_code == 0
         lines = result.output.splitlines()
-        name_lines = [l for l in lines if "bastion" in l or "prod-web" in l or "staging-db" in l]
+        name_lines = [
+            line
+            for line in lines
+            if "bastion" in line or "prod-web" in line or "staging-db" in line
+        ]
         assert len(name_lines) == 3
 
     def test_list_sort_by_use_count(
@@ -197,7 +205,9 @@ class TestCloneCommand:
         assert result.exit_code == 0
         assert "Cloned" in result.output
 
-    def test_clone_duplicate_name(self, runner, mock_config_manager, sample_connections):
+    def test_clone_duplicate_name(
+        self, runner, mock_config_manager, sample_connections
+    ):
         result = runner.invoke(clone, ["prod-web", "staging-db"])
         assert "already exists" in result.output
 
@@ -215,7 +225,9 @@ class TestCloneCommand:
             result = runner.invoke(clone, ["a", "b"])
             assert "tg init" in result.output
 
-    def test_clone_preserves_tags(self, runner, mock_config_manager, sample_connections):
+    def test_clone_preserves_tags(
+        self, runner, mock_config_manager, sample_connections
+    ):
         result = runner.invoke(clone, ["prod-web", "prod-web-v2"])
         assert result.exit_code == 0
         cloned = mock_config_manager.get_connection_by_name("prod-web-v2")
@@ -224,18 +236,14 @@ class TestCloneCommand:
 
 
 class TestTestCommand:
-    def test_test_single_success(
-        self, runner, mock_config_manager, sample_connections
-    ):
+    def test_test_single_success(self, runner, mock_config_manager, sample_connections):
         with patch("tengingarstjori.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr=b"")
             result = runner.invoke(test, ["prod-web"])
             assert result.exit_code == 0
             assert "OK" in result.output
 
-    def test_test_single_failure(
-        self, runner, mock_config_manager, sample_connections
-    ):
+    def test_test_single_failure(self, runner, mock_config_manager, sample_connections):
         with patch("tengingarstjori.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=255, stderr=b"Connection refused"
@@ -266,9 +274,7 @@ class TestTestCommand:
         result = runner.invoke(test, [])
         assert "Provide a connection name" in result.output
 
-    def test_test_custom_timeout(
-        self, runner, mock_config_manager, sample_connections
-    ):
+    def test_test_custom_timeout(self, runner, mock_config_manager, sample_connections):
         with patch("tengingarstjori.cli.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stderr=b"")
             result = runner.invoke(test, ["prod-web", "-t", "10"])
@@ -289,12 +295,8 @@ class TestHistoryCommand:
         result = runner.invoke(history, ["-f", "json"] if False else [])
         assert result.exit_code == 0
         lines = result.output.splitlines()
-        prod_idx = next(
-            (i for i, l in enumerate(lines) if "prod-web" in l), None
-        )
-        staging_idx = next(
-            (i for i, l in enumerate(lines) if "staging-db" in l), None
-        )
+        prod_idx = next((i for i, l in enumerate(lines) if "prod-web" in l), None)
+        staging_idx = next((i for i, l in enumerate(lines) if "staging-db" in l), None)
         assert prod_idx is not None
         assert staging_idx is not None
         assert prod_idx < staging_idx
@@ -388,9 +390,7 @@ class TestImportCommand:
             {"name": "imported-1", "host": "10.0.0.1", "user": "root"},
             {"name": "imported-2", "host": "10.0.0.2", "user": "admin"},
         ]
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             json.dump(data, f)
             path = f.name
         try:
@@ -405,9 +405,7 @@ class TestImportCommand:
         self, runner, mock_config_manager, sample_connections
     ):
         data = [{"name": "prod-web", "host": "10.0.0.99", "user": "other"}]
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             json.dump(data, f)
             path = f.name
         try:
@@ -420,9 +418,7 @@ class TestImportCommand:
 
     def test_import_overwrite(self, runner, mock_config_manager, sample_connections):
         data = [{"name": "prod-web", "host": "10.0.0.99", "user": "newuser"}]
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             json.dump(data, f)
             path = f.name
         try:
@@ -435,9 +431,7 @@ class TestImportCommand:
 
     def test_import_rename(self, runner, mock_config_manager, sample_connections):
         data = [{"name": "prod-web", "host": "10.0.0.99", "user": "other"}]
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             json.dump(data, f)
             path = f.name
         try:
@@ -454,9 +448,7 @@ class TestImportCommand:
         assert "File not found" in result.output
 
     def test_import_invalid_json(self, runner, mock_config_manager):
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             f.write("not json{{{")
             path = f.name
         try:
@@ -466,9 +458,7 @@ class TestImportCommand:
             Path(path).unlink(missing_ok=True)
 
     def test_import_not_array(self, runner, mock_config_manager):
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             json.dump({"name": "test"}, f)
             path = f.name
         try:
@@ -492,9 +482,7 @@ class TestExportImportRoundTrip:
         assert export_result.exit_code == 0
         data = json.loads(export_result.output)
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as f:
             json.dump(data, f)
             path = f.name
 
