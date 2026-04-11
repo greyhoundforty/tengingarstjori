@@ -27,4 +27,8 @@ allow = [
     '\ *',
     "sed *",
     "cp *",
+    ".venv/bin/black *",
+    ".venv/bin/flake8 *",
+    ".venv/bin/pytest *",
+    ".venv/bin/pre-commit *",
 ]
