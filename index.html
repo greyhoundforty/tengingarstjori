@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tengingarstjóri — SSH Connection Manager</title>
+  <meta name="description" content="A nerdy, opinionated SSH connection manager that stores connections separately and leaves your existing ~/.ssh/config completely untouched.">
+  <meta property="og:title" content="Tengingarstjóri — SSH Connection Manager">
+  <meta property="og:description" content="Non-invasive SSH connection management. ProxyJump, port forwarding, smart key discovery. Your existing config, untouched.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:            oklch(0.11 0.018 245);
+      --bg-surface:    oklch(0.15 0.015 245);
+      --bg-raised:     oklch(0.19 0.013 245);
+      --border:        oklch(0.26 0.010 245);
+      --border-subtle: oklch(0.20 0.010 245);
+      --text:          oklch(0.92 0.008 85);
+      --text-2:        oklch(0.65 0.008 240);
+      --text-muted:    oklch(0.42 0.008 240);
+      --accent:        oklch(0.80 0.15 78);
+      --accent-dim:    oklch(0.62 0.11 78);
+      --teal:          oklch(0.65 0.11 195);
+      --teal-bg:       oklch(0.65 0.11 195 / 0.12);
+      --green:         oklch(0.72 0.14 148);
+
+      --ff-display: 'Chakra Petch', sans-serif;
+      --ff-body:    'Atkinson Hyperlegible', sans-serif;
+      --ff-code:    'Fira Code', monospace;
+
+      --sp-xs:  4px;
+      --sp-sm:  8px;
+      --sp-md:  16px;
+      --sp-lg:  24px;
+      --sp-xl:  32px;
+      --sp-2xl: 48px;
+      --sp-3xl: 64px;
+      --sp-4xl: 96px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--ff-body);
+      font-size: 1rem;
+      line-height: 1.65;
+      min-height: 100vh;
+      background-image:
+        linear-gradient(oklch(0.19 0.015 245 / 0.35) 1px, transparent 1px),
+        linear-gradient(90deg, oklch(0.19 0.015 245 / 0.35) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    h1, h2, h3, h4 { font-family: var(--ff-display); font-weight: 700; line-height: 1.12; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: var(--ff-code); }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 var(--sp-xl);
+    }
+
+    /* ── Nav ─────────────────────────────── */
+    nav {
+      position: fixed;
+      inset: 0 0 auto 0;
+      z-index: 100;
+      padding: var(--sp-md) var(--sp-xl);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: oklch(0.11 0.018 245 / 0.88);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-logo {
+      font-family: var(--ff-display);
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-xl);
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-2);
+      font-family: var(--ff-display);
+      font-size: 0.8rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    .nav-gh {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      font-family: var(--ff-display);
+      font-size: 0.8rem;
+      color: var(--text-2);
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .nav-gh:hover { color: var(--text); border-color: var(--text-2); text-decoration: none; }
+
+    /* ── Hero ────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 80px;
+      padding-bottom: var(--sp-4xl);
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-4xl);
+      align-items: center;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      font-family: var(--ff-code);
+      font-size: 0.78rem;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      margin-bottom: var(--sp-lg);
+    }
+
+    .hero-eyebrow::before { content: '▸'; }
+
+    .hero-title {
+      font-size: clamp(2.6rem, 5vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--sp-sm);
+    }
+
+    .hero-translation {
+      font-family: var(--ff-display);
+      font-weight: 300;
+      font-size: clamp(1rem, 1.8vw, 1.2rem);
+      color: var(--text-2);
+      letter-spacing: 0.06em;
+      margin-bottom: 2px;
+    }
+
+    .hero-phonetic {
+      font-family: var(--ff-code);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-2xl);
+    }
+
+    .hero-tagline {
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--text-2);
+      max-width: 52ch;
+      margin-bottom: var(--sp-2xl);
+    }
+
+    .hero-tagline strong { color: var(--text); }
+
+    .c-inline {
+      color: var(--teal);
+      background: var(--teal-bg);
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-family: var(--ff-code);
+      font-size: 0.85em;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-md);
+      flex-wrap: wrap;
+    }
+
+    .install-cmd {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-md);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px var(--sp-md);
+      font-family: var(--ff-code);
+      font-size: 0.88rem;
+      color: var(--teal);
+      cursor: pointer;
+      transition: border-color 0.2s;
+      user-select: none;
+    }
+
+    .install-cmd:hover { border-color: var(--text-2); }
+    .install-cmd .prompt { color: var(--text-muted); }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover { color: var(--accent); }
+
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      font-family: var(--ff-display);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--text-2);
+      padding: 10px var(--sp-lg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-outline:hover { color: var(--text); border-color: var(--text-2); text-decoration: none; }
+
+    /* ── Hero terminal ───────────────────── */
+    .hero-term {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .term-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      padding: 10px var(--sp-md);
+      background: var(--bg-raised);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .tdot { width: 10px; height: 10px; border-radius: 50%; }
+    .tdot-r { background: oklch(0.52 0.18 25); }
+    .tdot-y { background: oklch(0.72 0.15 85); }
+    .tdot-g { background: oklch(0.60 0.15 148); }
+
+    .term-label {
+      flex: 1;
+      text-align: center;
+      font-family: var(--ff-code);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .term-body {
+      padding: var(--sp-lg);
+      font-family: var(--ff-code);
+      font-size: 0.8rem;
+      line-height: 1.75;
+    }
+
+    .tl { display: block; }
+    .t-p  { color: var(--teal); }
+    .t-c  { color: var(--text); }
+    .t-ok { color: var(--green); }
+    .t-n  { color: var(--teal); }
+    .t-h  { color: var(--accent); }
+    .t-m  { color: var(--text-muted); }
+    .t-2  { color: var(--text-2); }
+    .t-hi { color: var(--teal); }
+
+    .term-body .tl {
+      opacity: 0;
+      animation: lineIn 0.12s ease forwards;
+    }
+
+    @keyframes lineIn {
+      from { opacity: 0; transform: translateX(-3px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .term-body .tl:nth-child(1)  { animation-delay: 0.4s; }
+    .term-body .tl:nth-child(2)  { animation-delay: 0.65s; }
+    .term-body .tl:nth-child(3)  { animation-delay: 0.85s; }
+    .term-body .tl:nth-child(4)  { animation-delay: 1.0s; }
+    .term-body .tl:nth-child(5)  { animation-delay: 1.15s; }
+    .term-body .tl:nth-child(6)  { animation-delay: 1.4s; }
+    .term-body .tl:nth-child(7)  { animation-delay: 1.6s; }
+    .term-body .tl:nth-child(8)  { animation-delay: 1.75s; }
+    .term-body .tl:nth-child(9)  { animation-delay: 1.9s; }
+    .term-body .tl:nth-child(10) { animation-delay: 2.1s; }
+    .term-body .tl:nth-child(11) { animation-delay: 2.35s; }
+    .term-body .tl:nth-child(12) { animation-delay: 2.55s; }
+    .term-body .tl:nth-child(13) { animation-delay: 2.7s; }
+    .term-body .tl:nth-child(14) { animation-delay: 2.85s; }
+    .term-body .tl:nth-child(15) { animation-delay: 3.05s; }
+    .term-body .tl:nth-child(16) { animation-delay: 3.3s; }
+    .term-body .tl:nth-child(17) { animation-delay: 3.5s; }
+
+    /* ── Feature strip ───────────────────── */
+    .features {
+      padding: var(--sp-4xl) 0;
+      border-top: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .strip-label {
+      font-family: var(--ff-display);
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: var(--sp-2xl);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: var(--sp-2xl);
+    }
+
+    .feat-num {
+      font-family: var(--ff-code);
+      font-size: 0.68rem;
+      color: var(--accent);
+      margin-bottom: var(--sp-sm);
+    }
+
+    .feat-title {
+      font-family: var(--ff-display);
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: var(--sp-sm);
+    }
+
+    .feat-desc {
+      font-size: 0.85rem;
+      color: var(--text-2);
+      line-height: 1.6;
+      max-width: 30ch;
+    }
+
+    .feat-desc code {
+      color: var(--teal);
+      background: var(--teal-bg);
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-size: 0.88em;
+    }
+
+    /* ── Section scaffolding ─────────────── */
+    .section {
+      padding: var(--sp-4xl) 0;
+    }
+
+    .section-head {
+      margin-bottom: var(--sp-3xl);
+    }
+
+    .section-num {
+      font-family: var(--ff-code);
+      font-size: 0.72rem;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      margin-bottom: var(--sp-sm);
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      font-weight: 700;
+      margin-bottom: var(--sp-md);
+    }
+
+    .section-desc {
+      font-size: 1rem;
+      color: var(--text-2);
+      max-width: 65ch;
+      line-height: 1.7;
+    }
+
+    /* ── Command journal ─────────────────── */
+    .journal {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4xl);
+    }
+
+    .j-entry {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: var(--sp-2xl);
+      align-items: start;
+    }
+
+    .j-entry.flip { grid-template-columns: 1.6fr 1fr; }
+    .j-entry.flip .j-code { order: -1; }
+
+    .j-note { padding-top: var(--sp-sm); }
+
+    .j-tag {
+      display: inline-block;
+      font-family: var(--ff-code);
+      font-size: 0.68rem;
+      color: var(--accent);
+      background: oklch(0.80 0.15 78 / 0.1);
+      padding: 2px 8px;
+      border-radius: 2px;
+      margin-bottom: var(--sp-md);
+      letter-spacing: 0.06em;
+    }
+
+    .j-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: var(--sp-md);
+    }
+
+    .j-body {
+      font-size: 0.9rem;
+      color: var(--text-2);
+      line-height: 1.75;
+      max-width: 44ch;
+    }
+
+    .j-body code {
+      color: var(--teal);
+      background: var(--teal-bg);
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-size: 0.88em;
+    }
+
+    .j-code {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .cb-head {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-sm);
+      padding: 8px var(--sp-md);
+      background: var(--bg-raised);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .cb-label {
+      flex: 1;
+      font-family: var(--ff-code);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .cb-body {
+      padding: var(--sp-md);
+      font-family: var(--ff-code);
+      font-size: 0.78rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+
+    .cl { display: flex; align-items: baseline; gap: var(--sp-sm); margin-bottom: 2px; }
+    .cl-p  { color: var(--teal); flex-shrink: 0; }
+    .cl-c  { color: var(--text); }
+    .cl-f  { color: var(--accent-dim); }
+    .cl-v  { color: var(--teal); }
+    .cl-m  { color: var(--text-muted); }
+
+    .out { margin-top: var(--sp-sm); padding-top: var(--sp-sm); }
+    .ol  { display: block; color: var(--text-2); }
+    .ol-ok  { color: var(--green); }
+    .ol-m   { color: var(--text-muted); }
+    .ol-hi  { color: var(--teal); }
+    .ol-acc { color: var(--accent); }
+
+    /* Connection table */
+    .ctable {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--ff-code);
+      font-size: 0.73rem;
+      margin-top: var(--sp-sm);
+    }
+
+    .ctable thead th {
+      padding: 5px 8px;
+      text-align: left;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .ctable tbody td {
+      padding: 5px 8px;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .ctable tbody td:first-child { color: var(--text-muted); }
+    .ctable tbody td:nth-child(2) { color: var(--teal); }
+    .ctable tfoot td { padding: 6px 8px; color: var(--text-muted); font-size: 0.68rem; }
+
+    /* ── Power features ──────────────────── */
+    .power-section {
+      padding: var(--sp-4xl) 0;
+      background: var(--bg-surface);
+    }
+
+    .power-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-lg);
+    }
+
+    .pc {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: var(--sp-xl);
+    }
+
+    .pc-icon {
+      font-size: 1.4rem;
+      margin-bottom: var(--sp-md);
+      color: var(--accent);
+    }
+
+    .pc-title {
+      font-family: var(--ff-display);
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: var(--sp-sm);
+    }
+
+    .pc-desc {
+      font-size: 0.84rem;
+      color: var(--text-2);
+      line-height: 1.65;
+      margin-bottom: var(--sp-md);
+      max-width: 32ch;
+    }
+
+    .pc pre {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: var(--sp-md);
+      font-size: 0.73rem;
+      line-height: 1.75;
+      overflow-x: auto;
+      color: var(--text-2);
+    }
+
+    .pc pre .f { color: var(--accent-dim); }
+    .pc pre .v { color: var(--teal); }
+
+    /* ── Command reference ───────────────── */
+    .cmd-ref {
+      padding: var(--sp-4xl) 0;
+    }
+
+    .cmd-groups {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-2xl);
+    }
+
+    .cmd-group-title {
+      font-family: var(--ff-display);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--sp-md);
+      padding-bottom: var(--sp-sm);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .cmd-list { list-style: none; }
+
+    .cmd-list li {
+      display: flex;
+      gap: var(--sp-md);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 0.84rem;
+    }
+
+    .cmd-list li:last-child { border-bottom: none; }
+
+    .cmd-name {
+      font-family: var(--ff-code);
+      font-size: 0.78rem;
+      color: var(--teal);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 110px;
+    }
+
+    .cmd-desc {
+      color: var(--text-2);
+      font-size: 0.82rem;
+    }
+
+    /* ── CTA ─────────────────────────────── */
+    .cta-section {
+      padding: var(--sp-4xl) 0;
+      border-top: 1px solid var(--border-subtle);
+      text-align: center;
+    }
+
+    .cta-title {
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 700;
+      margin-bottom: var(--sp-md);
+    }
+
+    .cta-sub {
+      color: var(--text-2);
+      font-size: 1rem;
+      max-width: 58ch;
+      margin: 0 auto var(--sp-2xl);
+      line-height: 1.7;
+    }
+
+    .cta-actions {
+      display: flex;
+      justify-content: center;
+      gap: var(--sp-md);
+      flex-wrap: wrap;
+    }
+
+    /* ── Footer ──────────────────────────── */
+    footer {
+      padding: var(--sp-xl) 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .foot-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .foot-l {
+      font-family: var(--ff-display);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .foot-r {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .foot-r a { color: var(--text-muted); }
+    .foot-r a:hover { color: var(--text-2); text-decoration: none; }
+
+    /* ── Scroll reveal ───────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition:
+        opacity  0.5s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .features-grid .reveal:nth-child(2) { transition-delay: 0.07s; }
+    .features-grid .reveal:nth-child(3) { transition-delay: 0.14s; }
+    .features-grid .reveal:nth-child(4) { transition-delay: 0.21s; }
+    .features-grid .reveal:nth-child(5) { transition-delay: 0.28s; }
+
+    .power-grid .reveal:nth-child(2) { transition-delay: 0.1s; }
+    .power-grid .reveal:nth-child(3) { transition-delay: 0.2s; }
+
+    .cmd-groups .reveal:nth-child(2) { transition-delay: 0.08s; }
+    .cmd-groups .reveal:nth-child(3) { transition-delay: 0.16s; }
+
+    /* ── Responsive ──────────────────────── */
+    @media (max-width: 860px) {
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-term  { display: none; }
+
+      .j-entry,
+      .j-entry.flip { grid-template-columns: 1fr; }
+      .j-entry.flip .j-code { order: 0; }
+
+      .power-grid  { grid-template-columns: 1fr; }
+      .cmd-groups  { grid-template-columns: 1fr; }
+      .foot-inner  { flex-direction: column; gap: var(--sp-md); text-align: center; }
+    }
+
+    @media (max-width: 540px) {
+      .container { padding: 0 var(--sp-md); }
+      .hero-actions { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .term-body .tl { animation: none; opacity: 1; }
+      .reveal { opacity: 1; transform: none; transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav>
+    <span class="nav-logo">tg</span>
+    <ul class="nav-links">
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+    </ul>
+    <a href="https://github.com/greyhoundforty/tengingarstjori" class="nav-gh">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub
+    </a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-inner">
+        <div>
+          <div class="hero-eyebrow">SSH Connection Manager</div>
+          <h1 class="hero-title">Tengingarstjóri</h1>
+          <p class="hero-translation">Connection Manager</p>
+          <p class="hero-phonetic">/ tɛŋɪŋɡarˈstjouːrɪ / &mdash; Icelandic</p>
+          <p class="hero-tagline">
+            A <strong>nerdy, opinionated</strong> SSH connection manager that stores your connections in
+            <span class="c-inline">~/.ssh/config.tengingarstjori</span>
+            and leaves your existing config <strong>completely untouched</strong>.
+          </p>
+          <div class="hero-actions">
+            <div class="install-cmd" onclick="copyInstall(this)" role="button" tabindex="0" aria-label="Copy pip install command">
+              <span class="prompt">$</span>
+              <span>pip install tengingarstjori</span>
+              <button class="copy-btn" aria-label="Copy to clipboard">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <a href="https://github.com/greyhoundforty/tengingarstjori" class="btn-outline">
+              View on GitHub &rarr;
+            </a>
+          </div>
+        </div>
+
+        <!-- Animated terminal -->
+        <div class="hero-term" aria-hidden="true">
+          <div class="term-bar">
+            <span class="tdot tdot-r"></span>
+            <span class="tdot tdot-y"></span>
+            <span class="tdot tdot-g"></span>
+            <span class="term-label">~ &mdash; zsh</span>
+          </div>
+          <div class="term-body">
+            <span class="tl"><span class="t-p">$</span> <span class="t-c">tg init</span></span>
+            <span class="tl"><span class="t-ok">✓</span> <span class="t-2">SSH config backed up to ~/.ssh/config.backup</span></span>
+            <span class="tl"><span class="t-ok">✓</span> <span class="t-2">Created ~/.ssh/config.tengingarstjori</span></span>
+            <span class="tl">&nbsp;</span>
+            <span class="tl"><span class="t-p">$</span> <span class="t-c">tg add -n prod-web -h 10.0.1.10 -u deploy</span></span>
+            <span class="tl"><span class="t-ok">✓</span> <span class="t-2">Added connection '<span class="t-n">prod-web</span>'</span></span>
+            <span class="tl"><span class="t-m">  Connect with: ssh prod-web</span></span>
+            <span class="tl">&nbsp;</span>
+            <span class="tl"><span class="t-p">$</span> <span class="t-c">tg list</span></span>
+            <span class="tl"><span class="t-h">  SSH Connections</span></span>
+            <span class="tl"><span class="t-m">  ─────────────────────────────────</span></span>
+            <span class="tl"><span class="t-m">  #  Name      Host        User</span></span>
+            <span class="tl"><span class="t-m">  ─────────────────────────────────</span></span>
+            <span class="tl"><span class="t-2">  1  <span class="t-hi">prod-web</span>  10.0.1.10   deploy</span></span>
+            <span class="tl"><span class="t-m">  ─────────────────────────────────</span></span>
+            <span class="tl">&nbsp;</span>
+            <span class="tl"><span class="t-p">$</span> <span class="t-c">tg connect prod-web</span></span>
+            <span class="tl"><span class="t-ok">↗</span> <span class="t-2">ssh deploy@10.0.1.10</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature strip -->
+  <section class="features" id="features">
+    <div class="container">
+      <p class="strip-label">What it does</p>
+      <div class="features-grid">
+        <div class="reveal">
+          <div class="feat-num">01</div>
+          <div class="feat-title">Non-invasive config</div>
+          <p class="feat-desc">One <code>Include</code> line added. All managed connections live in their own file &mdash; remove it any time, nothing breaks.</p>
+        </div>
+        <div class="reveal">
+          <div class="feat-num">02</div>
+          <div class="feat-title">ProxyJump support</div>
+          <p class="feat-desc">Bastion hosts and multi-hop chains with one flag. Custom users, non-standard ports, deep tunnels.</p>
+        </div>
+        <div class="reveal">
+          <div class="feat-num">03</div>
+          <div class="feat-title">Port forwarding</div>
+          <p class="feat-desc">Local and remote forwards, multiple tunnels per connection. Comma-separate them. Old syntax auto-corrected.</p>
+        </div>
+        <div class="reveal">
+          <div class="feat-num">04</div>
+          <div class="feat-title">Flexible list views</div>
+          <p class="feat-desc">Table, compact, or JSON. Filter by tag, search by name or notes, sort by last used. Compose freely.</p>
+        </div>
+        <div class="reveal">
+          <div class="feat-num">05</div>
+          <div class="feat-title">Export &amp; import</div>
+          <p class="feat-desc">Backup as JSON or raw SSH config. Strip key paths for safe sharing. Import with skip, overwrite, or rename strategies.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Command journal -->
+  <section class="section" id="commands">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="section-num">// commands</div>
+        <h2 class="section-title">The connection journal</h2>
+        <p class="section-desc">Every command is designed to be typed once and remembered. Flags that make sense. Output you can read. No config language to learn.</p>
+      </div>
+
+      <div class="journal">
+
+        <!-- Init -->
+        <div class="j-entry reveal">
+          <div class="j-note">
+            <span class="j-tag">setup</span>
+            <h3 class="j-title">Initialize once, use forever</h3>
+            <p class="j-body">
+              <code>tg init</code> backs up your SSH config and adds a single <code>Include</code> line.
+              Everything managed by <code>tg</code> goes into <code>~/.ssh/config.tengingarstjori</code> — a separate file you can inspect, back up, or discard independently.
+            </p>
+          </div>
+          <div class="j-code">
+            <div class="cb-head">
+              <span class="tdot tdot-r"></span>
+              <span class="tdot tdot-y"></span>
+              <span class="tdot tdot-g"></span>
+              <span class="cb-label">tg init</span>
+            </div>
+            <div class="cb-body">
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg init</span></div>
+              <div class="out">
+                <span class="ol ol-acc">╭─ Initialize SSH Integration ────────────────╮</span>
+                <span class="ol ol-acc">╰─────────────────────────────────────────────╯</span>
+                <span class="ol">SSH config backed up to ~/.ssh/config.backup</span>
+                <span class="ol ol-ok">✓ Added Include line to ~/.ssh/config</span>
+                <span class="ol ol-ok">✓ Created ~/.ssh/config.tengingarstjori</span>
+                <span class="ol ol-m">  Ready. Run: tg add</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add -->
+        <div class="j-entry flip reveal">
+          <div class="j-note">
+            <span class="j-tag">add</span>
+            <h3 class="j-title">Add connections your way</h3>
+            <p class="j-body">
+              Flags for scripting, bare <code>tg add</code> for a guided prompt.
+              Supports ProxyJump, local and remote port forwarding, SSH keys, custom ports, and notes.
+              Everything is validated before it touches disk.
+            </p>
+          </div>
+          <div class="j-code">
+            <div class="cb-head">
+              <span class="tdot tdot-r"></span>
+              <span class="tdot tdot-y"></span>
+              <span class="tdot tdot-g"></span>
+              <span class="cb-label">tg add</span>
+            </div>
+            <div class="cb-body">
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg add <span class="cl-f">-n</span> <span class="cl-v">prod-web</span> <span class="cl-f">-h</span> <span class="cl-v">10.0.1.10</span> <span class="cl-f">-u</span> <span class="cl-v">deploy</span></span></div>
+              <div class="out">
+                <span class="ol ol-ok">✓ Added connection 'prod-web'</span>
+                <span class="ol ol-m">  Connect with: ssh prod-web</span>
+              </div>
+              <br>
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg add <span class="cl-f">-n</span> <span class="cl-v">staging-db</span> <span class="cl-f">-h</span> <span class="cl-v">10.0.2.20</span> <span class="cl-f">-u</span> <span class="cl-v">dbadmin</span> <span class="cl-f">\</span></span></div>
+              <div class="cl" style="padding-left: 1.4em;"><span class="cl-c"><span class="cl-f">--proxy-jump</span> <span class="cl-v">bastion</span> <span class="cl-f">\</span></span></div>
+              <div class="cl" style="padding-left: 1.4em;"><span class="cl-c"><span class="cl-f">--local-forward</span> <span class="cl-v">'5432:localhost:5432'</span></span></div>
+              <div class="out">
+                <span class="ol ol-ok">✓ Added connection 'staging-db'</span>
+                <span class="ol ol-m">  Connect with: ssh staging-db</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- List -->
+        <div class="j-entry reveal">
+          <div class="j-note">
+            <span class="j-tag">list</span>
+            <h3 class="j-title">See what you've got</h3>
+            <p class="j-body">
+              Standard table, detailed, compact, or JSON.
+              Filter by <code>--tag</code>, full-text <code>--search</code> across names, hosts, and notes.
+              Sort by <code>last-used</code> or <code>use-count</code>. Combine any filters freely.
+            </p>
+          </div>
+          <div class="j-code">
+            <div class="cb-head">
+              <span class="tdot tdot-r"></span>
+              <span class="tdot tdot-y"></span>
+              <span class="tdot tdot-g"></span>
+              <span class="cb-label">tg list</span>
+            </div>
+            <div class="cb-body">
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg list</span></div>
+              <div class="out">
+                <table class="ctable">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Name</th><th>Host</th><th>User</th><th>Port</th><th>Last Used</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>1</td><td>prod-web</td><td>10.0.1.10</td><td>deploy</td><td>22</td><td>2026-04-10</td></tr>
+                    <tr><td>2</td><td>bastion</td><td>bastion.example.com</td><td>jump</td><td>22</td><td>Never</td></tr>
+                    <tr><td>3</td><td>staging-db</td><td>10.0.2.20</td><td>dbadmin</td><td>5432</td><td>Never</td></tr>
+                  </tbody>
+                  <tfoot><tr><td colspan="6">Total: 3 connections</td></tr></tfoot>
+                </table>
+              </div>
+              <br>
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg list <span class="cl-f">--search</span> <span class="cl-v">bastion</span> <span class="cl-f">--sort</span> <span class="cl-v">last-used</span></span></div>
+              <div class="out">
+                <span class="ol ol-m">  Showing 2 of 3 connections</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connect / Snippet / History -->
+        <div class="j-entry flip reveal">
+          <div class="j-note">
+            <span class="j-tag">connect &middot; snippet &middot; history</span>
+            <h3 class="j-title">Workflow commands</h3>
+            <p class="j-body">
+              <code>tg connect</code> fires SSH and tracks usage stats.
+              <code>tg snippet</code> prints the exact SSH command or config block — pipe to clipboard.
+              <code>tg history</code> shows what you've been connecting to and how often.
+            </p>
+          </div>
+          <div class="j-code">
+            <div class="cb-head">
+              <span class="tdot tdot-r"></span>
+              <span class="tdot tdot-y"></span>
+              <span class="tdot tdot-g"></span>
+              <span class="cb-label">workflow</span>
+            </div>
+            <div class="cb-body">
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg connect prod-web</span></div>
+              <div class="out">
+                <span class="ol ol-ok">↗ ssh deploy@10.0.1.10</span>
+              </div>
+              <br>
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg snippet staging-db</span></div>
+              <div class="out">
+                <span class="ol ol-hi">ssh -J bastion -L 5432:localhost:5432 dbadmin@10.0.2.20</span>
+              </div>
+              <br>
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg history</span></div>
+              <div class="out">
+                <span class="ol ol-m">Recent connections:</span>
+                <span class="ol">  prod-web    2026-04-10  ×12</span>
+                <span class="ol">  staging-db  2026-04-09  &times;3</span>
+              </div>
+              <br>
+              <div class="cl"><span class="cl-p">$</span><span class="cl-c">tg test prod-web</span></div>
+              <div class="out">
+                <span class="ol ol-ok">✓ prod-web  reachable  42ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Power features -->
+  <section class="power-section">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="section-num">// advanced</div>
+        <h2 class="section-title">For the actually complex stuff</h2>
+        <p class="section-desc">The features homelab engineers actually need — handled cleanly instead of left as an exercise for the reader.</p>
+      </div>
+
+      <div class="power-grid">
+        <div class="pc reveal">
+          <div class="pc-icon">&#8608;</div>
+          <div class="pc-title">ProxyJump chains</div>
+          <p class="pc-desc">Multi-hop through bastion hosts. Custom users, non-standard ports, chains of any length.</p>
+          <pre>tg add -n deep-internal \
+  --host <span class="v">172.16.5.10</span> -u root \
+  --proxy-jump <span class="v">"jump1.company.com,\
+  user@jump2.internal.com"</span></pre>
+        </div>
+
+        <div class="pc reveal">
+          <div class="pc-icon">&#8644;</div>
+          <div class="pc-title">Multiple port forwards</div>
+          <p class="pc-desc">Comma-separate tunnels. Local and remote forwards in one connection. Syntax auto-corrected from legacy formats.</p>
+          <pre>tg add -n dev-stack \
+  --host <span class="v">dev.company.com</span> -u dev \
+  --local-forward <span class="v">"3000:localhost:3000,\
+  8080:localhost:8080,\
+  5432:localhost:5432"</span></pre>
+        </div>
+
+        <div class="pc reveal">
+          <div class="pc-icon">&#8645;</div>
+          <div class="pc-title">Export &amp; import</div>
+          <p class="pc-desc">JSON or SSH config output. Strip key paths for safe sharing. Three conflict strategies on import.</p>
+          <pre>tg export <span class="f">--strip-keys</span> \
+  <span class="f">-o</span> safe-backup.json
+
+tg import backup.json \
+  <span class="f">--strategy</span> <span class="v">rename</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Command reference -->
+  <section class="cmd-ref">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="section-num">// reference</div>
+        <h2 class="section-title">Every command</h2>
+      </div>
+
+      <div class="cmd-groups">
+        <div class="reveal">
+          <div class="cmd-group-title">Connections</div>
+          <ul class="cmd-list">
+            <li><span class="cmd-name">tg add</span><span class="cmd-desc">Add a connection (interactive or via flags)</span></li>
+            <li><span class="cmd-name">tg update</span><span class="cmd-desc">Update fields on an existing connection</span></li>
+            <li><span class="cmd-name">tg clone</span><span class="cmd-desc">Duplicate a connection with a new name</span></li>
+            <li><span class="cmd-name">tg remove</span><span class="cmd-desc">Remove a connection (<code class="c-inline" style="font-size:0.78em">--force</code> skips confirmation)</span></li>
+            <li><span class="cmd-name">tg show</span><span class="cmd-desc">Show all fields and the generated SSH block</span></li>
+            <li><span class="cmd-name">tg list</span><span class="cmd-desc">List connections with filters, sorts, and formats</span></li>
+          </ul>
+        </div>
+
+        <div class="reveal">
+          <div class="cmd-group-title">Workflow</div>
+          <ul class="cmd-list">
+            <li><span class="cmd-name">tg connect</span><span class="cmd-desc">SSH and track usage stats (<code class="c-inline" style="font-size:0.78em">--dry-run</code> to preview)</span></li>
+            <li><span class="cmd-name">tg snippet</span><span class="cmd-desc">Print the SSH command or config block</span></li>
+            <li><span class="cmd-name">tg history</span><span class="cmd-desc">Show recently used connections</span></li>
+            <li><span class="cmd-name">tg test</span><span class="cmd-desc">Check SSH connectivity (<code class="c-inline" style="font-size:0.78em">--all</code>, <code class="c-inline" style="font-size:0.78em">--timeout</code>)</span></li>
+            <li><span class="cmd-name">tg export</span><span class="cmd-desc">Export to JSON or SSH config format</span></li>
+            <li><span class="cmd-name">tg import</span><span class="cmd-desc">Import from JSON with conflict resolution</span></li>
+          </ul>
+        </div>
+
+        <div class="reveal">
+          <div class="cmd-group-title">Setup &amp; Maintenance</div>
+          <ul class="cmd-list">
+            <li><span class="cmd-name">tg init</span><span class="cmd-desc">Initialize and integrate with SSH config</span></li>
+            <li><span class="cmd-name">tg config</span><span class="cmd-desc">Manage default settings (e.g. default SSH key)</span></li>
+            <li><span class="cmd-name">tg validate</span><span class="cmd-desc">Check all connections for config issues</span></li>
+            <li><span class="cmd-name">tg refresh</span><span class="cmd-desc">Regenerate the managed SSH config file</span></li>
+            <li><span class="cmd-name">tg fix-config</span><span class="cmd-desc">Repair corrupted Include lines</span></li>
+            <li><span class="cmd-name">tg reset</span><span class="cmd-desc">Restore original SSH config from backup</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install CTA -->
+  <section class="cta-section" id="install">
+    <div class="container">
+      <div class="reveal">
+        <h2 class="cta-title">Start in 30 seconds</h2>
+        <p class="cta-sub">
+          Install from PyPI, run <span class="c-inline">tg init</span>, and your SSH connections are managed.
+          No daemons. No new config language. Your existing <span class="c-inline">~/.ssh/config</span> untouched.
+        </p>
+        <div class="cta-actions">
+          <div class="install-cmd" onclick="copyInstall(this)" role="button" tabindex="0" style="font-size: 0.95rem;">
+            <span class="prompt">$</span>
+            <span>pip install tengingarstjori</span>
+            <button class="copy-btn" aria-label="Copy to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <a href="https://github.com/greyhoundforty/tengingarstjori" class="btn-outline">
+            View source &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="foot-inner">
+        <div class="foot-l">
+          <strong style="color: var(--accent);">tg</strong> &middot; Tengingarstjóri &middot; MIT License
+        </div>
+        <div class="foot-r">
+          Built by <a href="https://github.com/greyhoundforty">greyhoundforty</a>
+          &nbsp;&middot;&nbsp;
+          <a href="https://github.com/greyhoundforty/tengingarstjori">GitHub</a>
+          &nbsp;&middot;&nbsp;
+          <a href="https://pypi.org/project/tengingarstjori/">PyPI</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Copy install command
+    function copyInstall(el) {
+      navigator.clipboard.writeText('pip install tengingarstjori').then(() => {
+        const btn = el.querySelector('.copy-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        btn.style.color = 'var(--green)';
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.style.color = '';
+        }, 2000);
+      });
+    }
+
+    // Keyboard support for install cmd
+    document.querySelectorAll('.install-cmd').forEach(el => {
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') copyInstall(el);
+      });
+    });
+
+    // Scroll reveal
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
