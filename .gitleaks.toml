@@ -1,0 +1,4 @@
+[allowlist]
+description = "Allowlist for known false positives"
+# Dummy SSH key strings written by test fixtures in test_config_manager.py — not real keys
+commits = ["92941014f7e86bb35a9c1694332ad4dd1c894c6f"]

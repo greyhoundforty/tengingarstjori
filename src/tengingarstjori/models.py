@@ -6,6 +6,17 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
+# SSH directives that execute shell commands — never allow in extra_options.
+# ProxyCommand/LocalCommand run arbitrary shell code when SSH connects to a host.
+_DANGEROUS_SSH_OPTIONS: frozenset[str] = frozenset(
+    {
+        "proxycommand",
+        "localcommand",
+        "permitlocalcommand",
+        "match",
+    }
+)
+
 
 class SSHConnection(BaseModel):
     """Represents an SSH connection configuration."""
@@ -56,7 +67,11 @@ class SSHConnection(BaseModel):
     @field_validator("extra_options")
     @classmethod
     def validate_extra_options(cls, v: dict[str, str]) -> dict[str, str]:
-        """Reject extra_options keys/values containing newlines."""
+        """Reject extra_options keys/values containing newlines or dangerous directives.
+
+        ProxyCommand, LocalCommand, and similar directives execute shell commands
+        when SSH connects — they must not be user-controllable via extra_options.
+        """
         for key, value in v.items():
             if "\n" in key or "\r" in key:
                 raise ValueError(
@@ -65,6 +80,11 @@ class SSHConnection(BaseModel):
             if "\n" in value or "\r" in value:
                 raise ValueError(
                     f"extra_options value must not contain newlines: {value!r}"
+                )
+            if key.lower() in _DANGEROUS_SSH_OPTIONS:
+                raise ValueError(
+                    f"extra_options key '{key}' is not allowed: this directive can "
+                    f"execute arbitrary shell commands. Use ProxyJump instead."
                 )
         return v
 
