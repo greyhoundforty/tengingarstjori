@@ -76,29 +76,28 @@ Usage: tg add [OPTIONS]
 
   Add a new SSH connection.
 
-  Examples:     # Basic connections     tg add -n server1 -h 192.168.1.10 -u
-  admin     tg add --name myserver --host example.com --user deploy --port
-  2222
+  Basic connections:
+    tg add -n server1 -h 192.168.1.10 -u admin
+    tg add --name myserver --host example.com --user deploy --port 2222
 
-      # ProxyJump examples     tg add -n internal --host 10.0.1.100 -u admin
-      --proxy-jump bastion.company.com     tg add -n db-server --host
-      192.168.10.50 -u dbadmin --proxy-jump
-      "jumpuser@bastion.company.com:2222"
+  ProxyJump:
+    tg add -n internal --host 10.0.1.100 -u admin --proxy-jump bastion.company.com
+    tg add -n db-server --host 192.168.10.50 -u dbadmin --proxy-jump "jumpuser@bastion.company.com:2222"
 
-      # Port forwarding examples (auto-corrected to proper SSH syntax)     tg
-      add -n db-tunnel --host db.company.com -u dbuser --local-forward
-      "3306:localhost:3306"     tg add -n dev-server --host dev.company.com -u
-      dev --local-forward "8080:localhost:80,3306:db:3306"     tg add -n
-      redis-tunnel --host redis.company.com -u admin --local-forward
-      "6379:localhost:6379"
+  Port forwarding (auto-corrected to proper SSH syntax):
+    tg add -n db-tunnel --host db.company.com -u dbuser --local-forward "3306:localhost:3306"
+    tg add -n dev-server --host dev.company.com -u dev --local-forward "8080:localhost:80,3306:db:3306"
+    tg add -n redis-tunnel --host redis.company.com -u admin --local-forward "6379:localhost:6379"
 
-      # Complex example with multiple options     tg add -n prod-db --host
-      prod-db.internal -u produser                --proxy-jump
-      bastion.company.com                --local-forward "5432:localhost:5432"
-      --key ~/.ssh/prod_key                --notes "Production database via
-      bastion"
+  Complex example with multiple options:
+    tg add -n prod-db --host prod-db.internal -u produser \
+           --proxy-jump bastion.company.com \
+           --local-forward "5432:localhost:5432" \
+           --key ~/.ssh/prod_key \
+           --notes "Production database via bastion"
 
-      tg add  # Interactive mode
+  Interactive mode:
+    tg add
 
 Options:
   -n, --name TEXT        Connection name

@@ -22,4 +22,9 @@ allow = [
     "printf *",
     "wc *",
     "rm *",
+    "ls *",
+    "for *",
+    '\ *',
+    "sed *",
+    "cp *",
 ]
