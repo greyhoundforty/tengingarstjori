@@ -27,12 +27,15 @@ pip install -e .
 
 ## Features
 
-- 🔧 **Full SSH Connection Management**: Add, remove, edit, and delete SSH connections
-- 📋 **Enhanced List Views**: Detailed and compact formats with advanced option display
+- 🔧 **Full SSH Connection Management**: Add, update, clone, and remove connections
+- 📋 **Flexible List Views**: Table, compact, and JSON formats with tag/search/sort filtering
+- ⚡ **Quick Connect**: `tg connect <name>` launches SSH and tracks usage stats
 - 🚀 **ProxyJump Support**: Seamless bastion host and jump server configuration
-- 🔀 **Port Forwarding**: Local, remote, and dynamic (SOCKS) port forwarding
+- 🔀 **Port Forwarding**: Local and remote port forwarding with auto-corrected syntax
 - 🔑 **Smart SSH Key Management**: Automatic key discovery and defaults
 - 🔗 **Non-invasive SSH Config Integration**: Preserves your existing setup
+- 📤 **Export / Import**: Backup and restore connections as JSON or SSH config format
+- 🕓 **History & Health Checks**: `tg history` and `tg test` for usage tracking and connectivity
 - 🎯 **Fast CLI Commands**: Intuitive `tg` prefix with rich output formatting
 
 ## Demo
@@ -46,12 +49,15 @@ pip install -e .
 tg init
 
 # Add your first connection
-tg add -n "web-server" -h "192.168.1.100" -u "admin"
+tg add -n web-server -h 192.168.1.100 -u admin
 
 # List connections
 tg list
 
-# Connect using SSH
+# Connect
+tg connect web-server
+
+# Or use SSH directly (tg manages the config)
 ssh web-server
 ```
 
@@ -79,50 +85,66 @@ Tengingarstjóri is designed to handle sensitive SSH configuration safely:
 
 ```bash
 # Add a simple connection
-tg add -n "web-server" -h "192.168.1.100" -u "admin"
+tg add -n web-server -h 192.168.1.100 -u admin
 
 # Add with custom port and SSH key
-tg add -n "database" -h "db.company.com" -u "dbuser" -p 2222 -k "~/.ssh/db_key"
+tg add -n database -h db.company.com -u dbuser -p 2222 -k ~/.ssh/db_key
 
 # Interactive mode (prompts for all options)
 tg add
+
+# Clone an existing connection with a new name
+tg clone prod-web staging-web
+
+# Connect (updates last_used / use_count, then execs ssh)
+tg connect prod-web
+
+# Preview the SSH command without connecting
+tg connect prod-web --dry-run
 ```
 
-### Enhanced List Views
+### Listing and Filtering
 
 ```bash
-# Standard list view
+# Standard table view
 tg list
 
-# Detailed view showing notes, proxy settings, and port forwarding
+# Detailed view showing notes, proxy, and port forwarding
 tg list --detailed
-tg list -d  # Short form
 
-# Compact format for space efficiency
+# Compact and JSON formats
 tg list --format compact
-tg list -f compact  # Short form
-
-# Detailed + compact (ideal for many connections)
-tg list -d -f compact
-
-# JSON output for scripting
 tg list --format json
-tg list -d -f json  # Detailed JSON
+
+# Filter by tag
+tg list --tag production
+
+# Full-text search across name, host, user, and notes
+tg list --search bastion
+
+# Only connections never used
+tg list --unused
+
+# Sort by last used (most recent first)
+tg list --sort last-used
+
+# Combine filters
+tg list --tag production --search web --sort use-count
 ```
 
 ### ProxyJump (Bastion/Jump Servers)
 
 ```bash
 # Simple bastion host access
-tg add -n "internal-server" -h "10.0.1.100" -u "admin" \
-    --proxy-jump "bastion.company.com"
+tg add -n internal-server -h 10.0.1.100 -u admin \
+    --proxy-jump bastion.company.com
 
 # Bastion with specific user and port
-tg add -n "secure-db" -h "192.168.10.50" -u "dbadmin" \
+tg add -n secure-db -h 192.168.10.50 -u dbadmin \
     --proxy-jump "jumpuser@bastion.company.com:2222"
 
 # Multi-hop through multiple servers
-tg add -n "deep-internal" -h "172.16.5.10" -u "root" \
+tg add -n deep-internal -h 172.16.5.10 -u root \
     --proxy-jump "jump1.company.com,user@jump2.internal.com"
 ```
 
@@ -130,40 +152,94 @@ tg add -n "deep-internal" -h "172.16.5.10" -u "root" \
 
 ```bash
 # Local port forwarding (tunnel remote service to local port)
-tg add -n "mysql-tunnel" -h "db-server.company.com" -u "dbuser" \
-    --local-forward "3306:localhost:3306" \
-    --notes "MySQL access via localhost:3306"
+tg add -n mysql-tunnel -h db-server.company.com -u dbuser \
+    --local-forward "3306:localhost:3306"
 
 # Multiple port forwards
-tg add -n "dev-services" -h "dev-server.company.com" -u "developer" \
+tg add -n dev-services -h dev-server.company.com -u developer \
     --local-forward "8080:localhost:80,3306:db-internal:3306,5432:pg-db:5432"
 
 # Remote port forwarding (expose local service to remote)
-tg add -n "demo-server" -h "demo.company.com" -u "demo" \
-    --remote-forward "8080:localhost:3000" \
-    --notes "Expose local dev server on remote port 8080"
+tg add -n demo-server -h demo.company.com -u demo \
+    --remote-forward "8080:localhost:3000"
+```
+
+### Export, Import, and Backup
+
+```bash
+# Export all connections to JSON (stdout)
+tg export
+
+# Save to a file
+tg export -o backup.json
+
+# Export as raw SSH config blocks
+tg export --format ssh-config
+
+# Export without key paths (safe to share)
+tg export --strip-keys -o safe-backup.json
+
+# Import from a backup (skip existing by default)
+tg import backup.json
+
+# Import and overwrite conflicts
+tg import backup.json --strategy overwrite
+
+# Import and auto-rename conflicts (prod-web → prod-web-2)
+tg import backup.json --strategy rename
+```
+
+### History, Health Checks, and Snippets
+
+```bash
+# Show recently used connections
+tg history
+
+# Show full history
+tg history --all
+
+# Test SSH connectivity for a single connection
+tg test prod-web
+
+# Test all connections
+tg test --all
+
+# Custom timeout
+tg test prod-web --timeout 10
+
+# Print the full SSH command for a connection
+tg snippet staging-db
+
+# Print the SSH config block
+tg snippet staging-db --config
+
+# Copy to clipboard (macOS)
+tg snippet staging-db | pbcopy
 ```
 
 ### Complex Real-World Examples
 
 ```bash
 # Production database with full security
-tg add -n "prod-db" \
-    --host "prod-db-01.internal" \
-    --hostname "prod-db-01.company.internal" \
-    --user "produser" \
-    --key "~/.ssh/production_key" \
-    --proxy-jump "prod-bastion.company.com" \
+tg add -n prod-db \
+    --host prod-db-01.internal \
+    --user produser \
+    --key ~/.ssh/production_key \
+    --proxy-jump prod-bastion.company.com \
     --local-forward "5432:prod-db-01.internal:5432" \
-    --notes "Production PostgreSQL access via bastion with tunnel"
+    --notes "Production PostgreSQL via bastion"
 
 # Development full-stack environment
-tg add -n "dev-full-stack" \
-    --host "dev.company.com" \
-    --user "developer" \
-    --proxy-jump "dev-bastion.company.com" \
+tg add -n dev-full-stack \
+    --host dev.company.com \
+    --user developer \
+    --proxy-jump dev-bastion.company.com \
     --local-forward "3000:localhost:3000,8080:localhost:8080,5432:localhost:5432" \
-    --notes "Full development stack: React (3000), API (8080), PostgreSQL (5432)"
+    --notes "React (3000), API (8080), PostgreSQL (5432)"
+
+# Clone prod config to staging and update the host
+tg clone prod-db staging-db
+tg update staging-db --host staging-db-01.internal --non-interactive
 ```
 
 ### Connection Management
@@ -173,12 +249,15 @@ tg add -n "dev-full-stack" \
 tg show prod-db
 tg show 1  # By number from list
 
-# Remove connections
-tg remove prod-db
-tg remove 1  # By number
+# Update a connection (non-interactive)
+tg update prod-db --host 10.0.1.20 --non-interactive
 
-# Configure default settings
-tg config
+# Add or replace tags
+tg update prod-db --tags "production,database" --non-interactive
+
+# Remove a connection
+tg remove prod-db
+tg remove prod-db --force  # Skip confirmation
 
 # View generated SSH configuration
 cat ~/.ssh/config.tengingarstjori
@@ -186,33 +265,36 @@ cat ~/.ssh/config.tengingarstjori
 
 ## CLI Commands
 
-### Core Commands
-- `tg add` - Add new SSH connection (supports ProxyJump, port forwarding, notes)
-- `tg list` - List all connections with optional detailed view (`--detailed`, `--format`)
-- `tg show <connection>` - Show detailed connection information
-- `tg remove <connection>` - Remove connection by name or number
-- `tg config` - Manage default settings (SSH keys, etc.)
+### Connection Commands
+| Command | Description |
+|---------|-------------|
+| `tg add` | Add a new SSH connection (interactive or via flags) |
+| `tg update <name>` | Update fields on an existing connection |
+| `tg clone <src> <name>` | Duplicate a connection with a new name |
+| `tg remove <name>` | Remove a connection (`--force` skips confirmation) |
+| `tg show <name>` | Show all fields and the generated SSH config block |
+| `tg list` | List connections (`--tag`, `--search`, `--sort`, `--unused`, `--format`) |
 
-### Management Commands
-- `tg init` - Initialize Tengingarstjóri and SSH config integration
-- `tg refresh` - Update SSH config file with current connections
-- `tg fix-config` - Fix corrupted SSH configuration
-- `tg reset` - Restore original SSH config (before Tengingarstjóri)
+### Workflow Commands
+| Command | Description |
+|---------|-------------|
+| `tg connect <name>` | Connect via SSH; updates usage stats (`--dry-run` to preview) |
+| `tg snippet <name>` | Print the SSH command or config block (`--config`) |
+| `tg history` | Show recently used connections (`--all`, `-n <limit>`) |
+| `tg test <name>` | Check SSH connectivity (`--all`, `--timeout`) |
+| `tg export` | Export connections to JSON or SSH config (`-o`, `-f`, `--strip-keys`) |
+| `tg import <file>` | Import connections from JSON (`--strategy skip\|overwrite\|rename`) |
 
-### Enhanced Options
-```bash
-# List command options
-tg list --detailed          # Show notes, proxy, port forwarding
-tg list --format compact    # Space-efficient output
-tg list --format json       # JSON output for scripting
-tg list -d -f compact       # Both options combined
-
-# Add command supports advanced SSH features
-tg add --proxy-jump "bastion.company.com"           # Jump server
-tg add --local-forward "3306:localhost:3306"        # Port tunnel
-tg add --remote-forward "8080:localhost:3000"       # Reverse tunnel
-tg add --notes "Production database server"         # Connection notes
-```
+### Setup & Maintenance Commands
+| Command | Description |
+|---------|-------------|
+| `tg init` | Initialize and integrate with SSH config |
+| `tg config` | Manage default settings (e.g. default SSH key) |
+| `tg validate` | Check all connections for config issues |
+| `tg refresh` | Regenerate `~/.ssh/config.tengingarstjori` |
+| `tg fix-config` | Repair corrupted `Include` lines |
+| `tg fix-forwards` | Auto-correct old-style port forwarding syntax |
+| `tg reset` | Restore original SSH config from backup |
 
 ## Python API
 
@@ -365,6 +447,7 @@ tg refresh
 
 ## Additional Resources
 
+- **[docs/demo.md](docs/demo.md)** - Live executable demo document (all commands with captured output)
 - **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Comprehensive usage guide
 - **[UBUNTU_INSTALL.md](UBUNTU_INSTALL.md)** - Ubuntu installation guide (handling "externally managed" environments)
 - **[PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md)** - PyPI publishing guide for maintainers

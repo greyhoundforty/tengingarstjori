@@ -6,6 +6,7 @@ Provides 'tg' commands for managing SSH connections.
 import json
 import os
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -205,28 +206,33 @@ def add(
 ) -> None:
     """Add a new SSH connection.
 
-    Examples:
-        # Basic connections
-        tg add -n server1 -h 192.168.1.10 -u admin
-        tg add --name myserver --host example.com --user deploy --port 2222
+    \b
+    Basic connections:
+      tg add -n server1 -h 192.168.1.10 -u admin
+      tg add --name myserver --host example.com --user deploy --port 2222
 
-        # ProxyJump examples
-        tg add -n internal --host 10.0.1.100 -u admin --proxy-jump bastion.company.com
-        tg add -n db-server --host 192.168.10.50 -u dbadmin --proxy-jump "jumpuser@bastion.company.com:2222"
+    \b
+    ProxyJump:
+      tg add -n internal --host 10.0.1.100 -u admin --proxy-jump bastion.company.com
+      tg add -n db-server --host 192.168.10.50 -u dbadmin --proxy-jump "jumpuser@bastion.company.com:2222"
 
-        # Port forwarding examples (auto-corrected to proper SSH syntax)
-        tg add -n db-tunnel --host db.company.com -u dbuser --local-forward "3306:localhost:3306"
-        tg add -n dev-server --host dev.company.com -u dev --local-forward "8080:localhost:80,3306:db:3306"
-        tg add -n redis-tunnel --host redis.company.com -u admin --local-forward "6379:localhost:6379"
+    \b
+    Port forwarding (auto-corrected to proper SSH syntax):
+      tg add -n db-tunnel --host db.company.com -u dbuser --local-forward "3306:localhost:3306"
+      tg add -n dev-server --host dev.company.com -u dev --local-forward "8080:localhost:80,3306:db:3306"
+      tg add -n redis-tunnel --host redis.company.com -u admin --local-forward "6379:localhost:6379"
 
-        # Complex example with multiple options
-        tg add -n prod-db --host prod-db.internal -u produser \
-               --proxy-jump bastion.company.com \
-               --local-forward "5432:localhost:5432" \
-               --key ~/.ssh/prod_key \
-               --notes "Production database via bastion"
+    \b
+    Complex example with multiple options:
+      tg add -n prod-db --host prod-db.internal -u produser \\
+             --proxy-jump bastion.company.com \\
+             --local-forward "5432:localhost:5432" \\
+             --key ~/.ssh/prod_key \\
+             --notes "Production database via bastion"
 
-        tg add  # Interactive mode
+    \b
+    Interactive mode:
+      tg add
     """
     config_manager = SSHConfigManager()
 
@@ -766,7 +772,16 @@ def update(
     default="table",
     help="Output format: table (default), compact, or json",
 )
-def list(detailed: bool, format: str) -> None:
+@click.option("--tag", "-t", help="Filter by tag")
+@click.option("--search", "-s", help="Search across name, host, user, and notes")
+@click.option(
+    "--sort",
+    type=click.Choice(["name", "last-used", "created", "use-count"]),
+    default=None,
+    help="Sort connections",
+)
+@click.option("--unused", is_flag=True, help="Show only unused connections")
+def list(detailed: bool, format: str, tag: Optional[str], search: Optional[str], sort: Optional[str], unused: bool) -> None:
     r"""List all SSH connections.
 
     \b
@@ -781,9 +796,45 @@ def list(detailed: bool, format: str) -> None:
       tg list -d -f compact      # Detailed compact format
       tg list -f json            # JSON output
       tg list -d -f json         # Detailed JSON output
+
+    \b
+    Filter and sort:
+      tg list --tag production   # Filter by tag
+      tg list -s webserver       # Search name, host, user, notes
+      tg list --sort last-used   # Sort by last used
+      tg list --unused           # Show only unused connections
+      tg list -t prod -s web     # Combine filters
     """
     config_manager = SSHConfigManager()
     connections = config_manager.list_connections()
+
+    # Apply filters
+    if tag:
+        connections = [c for c in connections if tag in c.tags]
+    if search:
+        search_lower = search.lower()
+        connections = [
+            c
+            for c in connections
+            if search_lower in c.name.lower()
+            or search_lower in c.host.lower()
+            or search_lower in c.user.lower()
+            or (c.notes and search_lower in c.notes.lower())
+            or (c.hostname and search_lower in c.hostname.lower())
+        ]
+    if unused:
+        connections = [c for c in connections if c.use_count == 0]
+
+    # Apply sorting
+    if sort:
+        sort_keys = {
+            "name": lambda c: c.name.lower(),
+            "last-used": lambda c: (c.last_used or datetime.min),
+            "created": lambda c: c.created_at,
+            "use-count": lambda c: c.use_count,
+        }
+        reverse = sort in ("last-used", "use-count", "created")
+        connections = sorted(connections, key=sort_keys[sort], reverse=reverse)
 
     if not connections:
         console.print(
@@ -1492,6 +1543,384 @@ def reset() -> None:
             f"[dim]1. Copy {backup_path} to {config_manager.main_ssh_config}[/dim]"
         )
         console.print(f"[dim]2. Delete {config_manager.managed_config}[/dim]")
+
+
+@cli.command()
+@click.argument("connection_ref")
+@click.option("--dry-run", is_flag=True, help="Print the SSH command without executing")
+def connect(connection_ref: str, dry_run: bool) -> None:
+    """Connect to an SSH server.
+
+    \b
+    Examples:
+      tg connect myserver          # Connect by name
+      tg connect 1                 # Connect by number
+      tg connect myserver --dry-run  # Show SSH command without connecting
+    """
+    config_manager = SSHConfigManager()
+
+    if not config_manager.is_initialized():
+        console.print("[red]Please run 'tg init' first[/red]")
+        return
+
+    connection = _find_connection_by_ref(config_manager, connection_ref)
+    if not connection:
+        return
+
+    # Update usage statistics
+    connection.update_usage()
+    config_manager.update_connection(connection)
+
+    if dry_run:
+        console.print(f"[dim]ssh {connection.name}[/dim]")
+        return
+
+    console.print(f"[green]Connecting to {connection.name}...[/green]")
+    os.execvp("ssh", ["ssh", connection.name])
+
+
+@cli.command(name="export")
+@click.option("--output", "-o", help="Output file path (default: stdout)")
+@click.option(
+    "--format",
+    "-f",
+    "export_format",
+    type=click.Choice(["json", "ssh-config"]),
+    default="json",
+    help="Export format",
+)
+@click.option("--strip-keys", is_flag=True, help="Omit SSH key paths from export")
+def export_cmd(output: Optional[str], export_format: str, strip_keys: bool) -> None:
+    """Export connections for backup or sharing.
+
+    \b
+    Examples:
+      tg export                          # JSON to stdout
+      tg export -o backup.json           # JSON to file
+      tg export -f ssh-config            # SSH config format to stdout
+      tg export --strip-keys -o safe.json  # Export without key paths
+    """
+    config_manager = SSHConfigManager()
+    connections = config_manager.list_connections()
+
+    if not connections:
+        console.print("[yellow]No connections to export.[/yellow]")
+        return
+
+    if export_format == "ssh-config":
+        result = ""
+        for conn in connections:
+            if strip_keys:
+                conn = conn.model_copy(update={"identity_file": None})
+            result += conn.to_ssh_config_block() + "\n"
+    else:
+        data = []
+        for conn in connections:
+            conn_data = conn.model_dump(mode="json")
+            if strip_keys:
+                conn_data.pop("identity_file", None)
+            data.append(conn_data)
+        result = json.dumps(data, indent=2, ensure_ascii=False)
+
+    if output:
+        path = Path(output)
+        path.write_text(result)
+        console.print(f"[green]✓[/green] Exported {len(connections)} connections to {output}")
+    else:
+        print(result)
+
+
+@cli.command(name="import")
+@click.argument("filepath")
+@click.option(
+    "--strategy",
+    type=click.Choice(["skip", "overwrite", "rename"]),
+    default="skip",
+    help="Conflict resolution: skip (default), overwrite, or rename",
+)
+def import_cmd(filepath: str, strategy: str) -> None:
+    """Import connections from a JSON file.
+
+    \b
+    Examples:
+      tg import backup.json                    # Skip existing
+      tg import backup.json --strategy overwrite  # Overwrite conflicts
+      tg import backup.json --strategy rename     # Rename conflicts
+    """
+    config_manager = SSHConfigManager()
+
+    if not config_manager.is_initialized():
+        console.print("[red]Please run 'tg init' first[/red]")
+        return
+
+    path = Path(filepath)
+    if not path.exists():
+        console.print(f"[red]File not found: {filepath}[/red]")
+        return
+
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Invalid JSON: {e}[/red]")
+        return
+
+    if isinstance(data, dict) or not hasattr(data, '__iter__'):
+        console.print("[red]Expected a JSON array of connections[/red]")
+        return
+
+    imported = 0
+    skipped = 0
+    errors = 0
+
+    for item in data:
+        try:
+            # Remove id so a new one is generated
+            item.pop("id", None)
+            conn = SSHConnection(**item)
+        except Exception as e:
+            console.print(f"[red]✗[/red] Invalid connection data: {e}")
+            errors += 1
+            continue
+
+        existing = config_manager.get_connection_by_name(conn.name)
+        if existing:
+            if strategy == "skip":
+                console.print(f"[yellow]Skipped '{conn.name}' (already exists)[/yellow]")
+                skipped += 1
+                continue
+            elif strategy == "overwrite":
+                config_manager.remove_connection(existing.id)
+            elif strategy == "rename":
+                original_name = conn.name
+                counter = 2
+                while config_manager.get_connection_by_name(conn.name):
+                    conn = conn.model_copy(update={"name": f"{original_name}-{counter}"})
+                    counter += 1
+                console.print(f"[dim]Renamed '{original_name}' to '{conn.name}'[/dim]")
+
+        if config_manager.add_connection(conn):
+            imported += 1
+        else:
+            console.print(f"[red]✗[/red] Failed to add '{conn.name}'")
+            errors += 1
+
+    console.print(f"\n[green]✓[/green] Imported: {imported}, Skipped: {skipped}, Errors: {errors}")
+
+
+@cli.command()
+@click.argument("source_ref")
+@click.argument("new_name")
+def clone(source_ref: str, new_name: str) -> None:
+    """Clone an existing connection with a new name.
+
+    \b
+    Examples:
+      tg clone prod-web staging-web
+      tg clone 1 prod-web-2
+    """
+    config_manager = SSHConfigManager()
+
+    if not config_manager.is_initialized():
+        console.print("[red]Please run 'tg init' first[/red]")
+        return
+
+    source = _find_connection_by_ref(config_manager, source_ref)
+    if not source:
+        return
+
+    if config_manager.get_connection_by_name(new_name):
+        console.print(f"[red]Connection '{new_name}' already exists[/red]")
+        return
+
+    clone_data = source.model_dump()
+    clone_data.pop("id", None)
+    clone_data["name"] = new_name
+    clone_data["created_at"] = datetime.now()
+    clone_data["last_used"] = None
+    clone_data["use_count"] = 0
+
+    try:
+        new_conn = SSHConnection(**clone_data)
+    except ValueError as e:
+        console.print(f"[red]Validation error: {e}[/red]")
+        return
+
+    if config_manager.add_connection(new_conn):
+        console.print(f"[green]✓[/green] Cloned '{source.name}' as '{new_name}'")
+    else:
+        console.print(f"[red]Failed to clone connection[/red]")
+
+
+@cli.command()
+@click.argument("connection_ref", required=False)
+@click.option("--all", "test_all", is_flag=True, help="Test all connections")
+@click.option(
+    "--timeout",
+    "-t",
+    default=5,
+    type=int,
+    help="Connection timeout in seconds (default: 5)",
+)
+def test(connection_ref: Optional[str], test_all: bool, timeout: int) -> None:
+    """Test SSH connection health.
+
+    \b
+    Examples:
+      tg test myserver           # Test single connection
+      tg test --all              # Test all connections
+      tg test myserver -t 10     # Custom timeout
+    """
+    config_manager = SSHConfigManager()
+
+    if not config_manager.is_initialized():
+        console.print("[red]Please run 'tg init' first[/red]")
+        return
+
+    if test_all:
+        connections = config_manager.list_connections()
+        if not connections:
+            console.print("[yellow]No connections to test.[/yellow]")
+            return
+    elif connection_ref:
+        conn = _find_connection_by_ref(config_manager, connection_ref)
+        if not conn:
+            return
+        connections = [conn]
+    else:
+        console.print("[red]Provide a connection name or use --all[/red]")
+        return
+
+    console.print(
+        Panel("🔍 [bold blue]Connection Health Check[/bold blue]", style="blue")
+    )
+
+    for conn in connections:
+        try:
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-o", f"ConnectTimeout={timeout}",
+                    "-o", "BatchMode=yes",
+                    "-o", "StrictHostKeyChecking=no",
+                    conn.name,
+                    "exit",
+                ],
+                capture_output=True,
+                timeout=timeout + 5,
+            )
+            if result.returncode == 0:
+                console.print(f"[green]✓[/green] {conn.name}: OK")
+            else:
+                stderr = result.stderr.decode().strip()
+                console.print(f"[red]✗[/red] {conn.name}: Failed ({stderr or 'unknown error'})")
+        except subprocess.TimeoutExpired:
+            console.print(f"[yellow]⏱[/yellow] {conn.name}: Timeout ({timeout}s)")
+        except FileNotFoundError:
+            console.print("[red]SSH client not found[/red]")
+            return
+        except Exception as e:
+            console.print(f"[red]✗[/red] {conn.name}: Error ({e})")
+
+
+@cli.command()
+@click.option(
+    "--all",
+    "show_all",
+    is_flag=True,
+    help="Show full history",
+)
+@click.option(
+    "--limit",
+    "-n",
+    default=10,
+    type=int,
+    help="Number of recent connections to show (default: 10)",
+)
+def history(show_all: bool, limit: int) -> None:
+    """Show recent connection history.
+
+    \b
+    Examples:
+      tg history              # Last 10 connections
+      tg history --all        # Full history
+      tg history -n 5         # Last 5 connections
+    """
+    config_manager = SSHConfigManager()
+    connections = config_manager.list_connections()
+
+    used = [c for c in connections if c.last_used is not None]
+    used.sort(key=lambda c: c.last_used, reverse=True)  # type: ignore[arg-type]
+
+    if not used:
+        console.print("[yellow]No connection history yet.[/yellow]")
+        return
+
+    if not show_all:
+        used = used[:limit]
+
+    table = Table(title="Connection History")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Name", style="cyan")
+    table.add_column("Last Used", style="green")
+    table.add_column("Use Count", style="yellow", justify="right")
+    table.add_column("Connection", style="blue")
+
+    for i, conn in enumerate(used, 1):
+        last_used = conn.last_used.strftime("%Y-%m-%d %H:%M") if conn.last_used else "Never"
+        table.add_row(
+            str(i),
+            conn.name,
+            last_used,
+            str(conn.use_count),
+            f"{conn.user}@{conn.host}",
+        )
+
+    console.print(table)
+
+
+@cli.command()
+@click.argument("connection_ref")
+@click.option("--config", "show_config", is_flag=True, help="Show SSH config block instead of command")
+def snippet(connection_ref: str, show_config: bool) -> None:
+    """Show the SSH command or config block for a connection.
+
+    \b
+    Examples:
+      tg snippet myserver            # SSH command
+      tg snippet myserver --config   # SSH config block
+      tg snippet myserver | pbcopy   # Copy to clipboard (macOS)
+    """
+    config_manager = SSHConfigManager()
+
+    connection = _find_connection_by_ref(config_manager, connection_ref)
+    if not connection:
+        return
+
+    if show_config:
+        print(connection.to_ssh_config_block())
+    else:
+        parts = ["ssh"]
+        if connection.identity_file:
+            parts.extend(["-i", connection.identity_file])
+        if connection.port != 22:
+            parts.extend(["-p", str(connection.port)])
+        if connection.proxy_jump:
+            parts.extend(["-J", connection.proxy_jump])
+        if connection.local_forward:
+            for fwd in connection.local_forward.split(","):
+                fwd = fwd.strip()
+                if fwd:
+                    parts.extend(["-L", fwd])
+        if connection.remote_forward:
+            for fwd in connection.remote_forward.split(","):
+                fwd = fwd.strip()
+                if fwd:
+                    parts.extend(["-R", fwd])
+
+        host = connection.hostname or connection.host
+        parts.append(f"{connection.user}@{host}")
+
+        print(" ".join(parts))
 
 
 if __name__ == "__main__":

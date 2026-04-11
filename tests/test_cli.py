@@ -7,7 +7,23 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from tengingarstjori.cli import add, cli, config, list, refresh, remove, show, update
+from tengingarstjori.cli import (
+    add,
+    cli,
+    clone,
+    config,
+    connect,
+    export_cmd,
+    history,
+    import_cmd,
+    list,
+    refresh,
+    remove,
+    show,
+    snippet,
+    test,
+    update,
+)
 from tengingarstjori.config_manager import SSHConfigManager
 from tengingarstjori.models import SSHConnection
 
