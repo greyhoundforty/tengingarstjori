@@ -750,6 +750,10 @@ echo "  2. Edit the draft release"
 echo "  3. Click '\''Publish release'\''"
 '''
 
+[tasks.testbump]
+description = "Bump version in pyproject.toml and test assertions. Usage: mise run testbump [patch|minor]"
+run = "python scripts/bump_version.py"
+
 # Help task
 [tasks.help]
 description = "Show available tasks organized by category"
