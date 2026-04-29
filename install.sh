@@ -14,6 +14,24 @@ fi
 
 echo "✅ Python version check passed: $python_version"
 
+# Ensure we are working inside a virtual environment to avoid polluting the
+# system or mise-managed Python and prevent PATH ambiguity with the 'tg' script.
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo ""
+    echo "⚠️  No active virtual environment detected."
+    echo "   It is strongly recommended to install inside a virtual environment:"
+    echo ""
+    echo "     python3 -m venv .venv"
+    echo "     source .venv/bin/activate"
+    echo "     bash install.sh"
+    echo ""
+    read -r -p "Continue without a virtual environment? [y/N] " response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Aborted. Please activate a virtual environment and re-run."
+        exit 1
+    fi
+fi
+
 # Install the package
 echo "📦 Installing tengingarstjori..."
 pip install -e .
@@ -33,6 +51,7 @@ if command -v tg &> /dev/null; then
     echo "Get help: tg --help"
 else
     echo "❌ Installation failed. The 'tg' command is not available."
-    echo "Check your Python PATH configuration."
+    echo "   If you installed inside a virtual environment, make sure it is activated."
+    echo "   You can also run the CLI directly with: python -m tengingarstjori"
     exit 1
 fi
