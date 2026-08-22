@@ -5,7 +5,7 @@
 repos:
   # Standard pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         description: Trim trailing whitespace
@@ -28,15 +28,15 @@ repos:
 
   # Python code formatting
   - repo: https://github.com/psf/black
-    rev: 24.1.1
+    rev: 26.5.1
     hooks:
       - id: black
         description: Format Python code with Black
-        args: [--line-length=88, --target-version=py39]
+        args: [--line-length=88, --target-version=py310]
 
   # Import sorting
   - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+    rev: 8.0.1
     hooks:
       - id: isort
         description: Sort Python imports
@@ -44,7 +44,7 @@ repos:
 
   # Linting
   - repo: https://github.com/pycqa/flake8
-    rev: 7.0.0
+    rev: 7.3.0
     hooks:
       - id: flake8
         description: Lint Python code with flake8
