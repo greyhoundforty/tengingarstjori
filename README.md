@@ -4,9 +4,13 @@
 
 ## Installation
 
+Requires **Python 3.10 or newer**. Installing inside a virtual environment is recommended to avoid PATH conflicts with the `tg` script.
+
 ### From PyPI (Recommended)
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install tengingarstjori
 ```
 
@@ -15,8 +19,23 @@ pip install tengingarstjori
 ```bash
 git clone https://github.com/greyhoundforty/tengingarstjori.git
 cd tengingarstjori
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
+
+`install.sh` automates the source install. It warns if no virtual environment is active and asks before continuing.
+
+### Troubleshooting: `tg: command not found`
+
+Make sure the virtual environment you installed into is activated. You can also run the CLI as a module, which doesn't depend on `PATH`:
+
+```bash
+python -m tengingarstjori --help
+python -m tengingarstjori list
+```
+
+Check the installed version with `tg --version`.
 
 ## Features
 
@@ -69,6 +88,8 @@ Tengingarstjóri is designed to handle sensitive SSH configuration safely:
 
 - **Restricted file permissions**: `connections.json`, `~/.ssh/config.tengingarstjori`, and the `~/.tengingarstjori/` config directory are created with `0600`/`0700` permissions atomically — there is no window where files are world-readable.
 - **SSH config injection prevention**: All user-supplied fields (`name`, `host`, `user`, `identity_file`, `proxy_jump`, `extra_options`) are validated to reject newline characters before being written into the SSH config. Notes have newlines stripped. This prevents crafted values from injecting arbitrary SSH config directives.
+- **Dangerous directives blocked**: `extra_options` rejects `ProxyCommand`, `LocalCommand`, `PermitLocalCommand`, and `Match` (case-insensitive), since these can execute arbitrary shell commands when SSH connects. Use `--proxy-jump` for bastion hosts instead.
+- **Host key verification stays on**: `tg test` runs `ssh` with `BatchMode=yes` and does not disable `StrictHostKeyChecking`. A host you have never connected to will fail the health check until you connect once and accept its key.
 - **Non-destructive config management**: Only a single `Include` line is added to your main `~/.ssh/config`. All managed connections live in a separate file that can be inspected, backed up, or removed independently.
 - **Backup before changes**: A backup of your main SSH config is created at `~/.ssh/config.backup` before any modification.
 
@@ -299,6 +320,10 @@ cat ~/.ssh/config.tengingarstjori
 ## Additional Resources
 
 - **[docs/demo.md](docs/demo.md)** - Live executable demo document (all commands with captured output)
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Development setup and workflow
+- **[docs/CHANGELOG.md](docs/CHANGELOG.md)** - Release history
+- **[docs/publishing-setup.md](docs/publishing-setup.md)** - PyPI / GitHub Actions trusted-publishing setup
+- **[security_best_practices_report.md](security_best_practices_report.md)** - Security review findings and tooling
 
 ## Development Commands
 
@@ -307,6 +332,7 @@ cat ~/.ssh/config.tengingarstjori
 - `mise run format` - Format code
 - `mise run validate` - Full validation suite
 - `mise run validate:quick` - Quick validation
+- `mise run testbump [patch|minor]` - Bump the version in `pyproject.toml` and sync the test's version assertion
 
 ## Development Workflow
 
@@ -321,7 +347,7 @@ mise run validate         # Full validation before commit
 
 ## Contributing
 
-1. See the implementation phases in [PHASES.md](PHASES.md)
+1. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for environment setup
 2. Ensure all tests pass: `mise run test`
 3. Check code quality: `mise run lint`
 4. Run full validation: `mise run validate`
@@ -335,4 +361,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Created with Claude Project CLI and designed for seamless SSH workflow integration. Enhanced with comprehensive testing, code quality checks, and automated validation.
 
-For detailed development setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
+For detailed development setup, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
